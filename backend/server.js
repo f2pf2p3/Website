@@ -1,11 +1,11 @@
 const path = require('path');
 
 // โหลด .env สำหรับ Local Development ( Render จะดึง process.env มาใช้อัตโนมัติอยู่แล้ว)
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const express = require('express');
 const cors = require('cors');
-const mysql = require('mysql2/promise'); // เปลี่ยนเป็น mysql2/promise เพื่อรองรับ async/await
+const { Pool } = require('pg'); // เปลี่ยนจาก mysql2 เป็น pg
 const bcrypt = require('bcrypt');
 
 const app = express();
@@ -15,22 +15,21 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// --- SETTING MySQL CONNECTION (POOL) ---
-// ใช้ createPool เพื่อป้องกันปัญหาสายหลุด (Connection Timeout) บน Production
-const db = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    // เปิดใช้งาน SSL หากฐานข้อมูลบน Production บังคับใช้ (เช่น Aiven, PlanetScale, Supabase)
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+// --- SETTING NEON POSTGRESQL CONNECTION (POOL) ---
+// ใช้ DATABASE_URL จาก Neon ที่กำหนดไว้ใน .env หรือ Render Environment Variables
+const db = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // จำเป็นสำหรับการเชื่อมต่อ Neon SSL
+    }
 });
 
-// --- API: GET USER BY ID (วางใน server.js) ---
+// ทดสอบการเชื่อมต่อฐานข้อมูล
+db.connect()
+    .then(() => console.log(' Connected to Neon PostgreSQL'))
+    .catch(err => console.error(' Database connection error:', err));
+
+// --- API: GET USER BY ID ---
 app.get('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
 
@@ -38,14 +37,14 @@ app.get('/api/users/:id', async (req, res) => {
         const sql = `
             SELECT id, username, email
             FROM users
-            WHERE id = ?
+            WHERE id = $1
             LIMIT 1
         `;
 
-        const [results] = await db.execute(sql, [userId]);
+        const result = await db.query(sql, [userId]);
 
         // User does not exist
-        if (results.length === 0) {
+        if (result.rows.length === 0) {
             return res.status(404).json({
                 message: 'User not found'
             });
@@ -54,7 +53,7 @@ app.get('/api/users/:id', async (req, res) => {
         // User exists
         res.json({
             status: 'success',
-            user: results[0]
+            user: result.rows[0]
         });
 
     } catch (err) {
@@ -84,19 +83,19 @@ app.post('/api/login', async (req, res) => {
         const sql = `
             SELECT id, username, email, password
             FROM users
-            WHERE username = ? OR email = ?
+            WHERE username = $1 OR email = $2
             LIMIT 1
         `;
 
-        const [results] = await db.execute(sql, [username, username]);
+        const result = await db.query(sql, [username, username]);
 
-        if (results.length === 0) {
+        if (result.rows.length === 0) {
             return res.status(401).json({
                 message: "Invalid username/email or password"
             });
         }
 
-        const user = results[0];
+        const user = result.rows[0];
 
         const passwordMatch = await bcrypt.compare(password, user.password);
 
@@ -125,9 +124,9 @@ app.post('/api/login', async (req, res) => {
 // --- API: LOAD ALL USERS ---
 app.get('/api/users', async (req, res) => {
     try {
-        const sql = 'SELECT id, username, email, created_at FROM users';
-        const [results] = await db.execute(sql);
-        res.json(results);
+        const sql = 'SELECT id, username, email, created_at FROM users ORDER BY id DESC';
+        const result = await db.query(sql);
+        res.json(result.rows);
     } catch (err) {
         console.error("Fetch users error:", err);
         return res.status(500).json({ error: 'Database error' });
@@ -139,10 +138,10 @@ app.delete('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
 
     try {
-        const sql = 'DELETE FROM users WHERE id = ?';
-        const [result] = await db.execute(sql, [userId]);
+        const sql = 'DELETE FROM users WHERE id = $1';
+        const result = await db.query(sql, [userId]);
 
-        if (result.affectedRows === 0) {
+        if (result.rowCount === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
 
@@ -170,23 +169,26 @@ app.post('/api/register', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // PostgreSQL ใช้ RETURNING id เพื่อคืนค่า Primary Key ที่สร้างขึ้นใหม่
         const sql = `
             INSERT INTO users (username, email, password)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
+            RETURNING id
         `;
 
-        const [result] = await db.execute(sql, [username, email, hashedPassword]);
+        const result = await db.query(sql, [username, email, hashedPassword]);
 
         res.status(201).json({
             status: "success",
             message: "สมัครสมาชิกสำเร็จแล้ว!",
-            userId: result.insertId
+            userId: result.rows[0].id // ดึง ID ผ่าน result.rows[0].id แทน insertId
         });
 
     } catch (error) {
         console.error("Register error:", error);
 
-        if (error.code === 'ER_DUP_ENTRY') {
+        // PostgreSQL Error code สำหรับข้อมูลซ้ำ (Unique constraint violation) คือ '23505'
+        if (error.code === '23505') {
             return res.status(400).json({ message: "Username หรือ Email นี้ถูกใช้งานแล้ว" });
         }
 
