@@ -1,32 +1,10 @@
-// ============================================================
-// IMPORT PACKAGES
-// ============================================================
-
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
-
-
-// ============================================================
-// LOAD ENVIRONMENT VARIABLES
-// ============================================================
-
 require('dotenv').config();
-
-
-// ============================================================
-// CREATE EXPRESS APP
-// ============================================================
 
 const app = express();
 
-
-// ============================================================
-// PORT
-// ============================================================
-
-// Render provides PORT automatically.
-// Local development uses 5000.
 const PORT = process.env.PORT || 5000;
 
 
@@ -34,38 +12,28 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARE
 // ============================================================
 
-// Allow requests from the separate frontend.
 app.use(cors());
 
-// Allow JSON request bodies.
 app.use(express.json());
 
 
 // ============================================================
-// DATABASE CONNECTION
+// DATABASE
 // ============================================================
 
 const db = new Pool({
+    connectionString: process.env.DATABASE_URL,
 
-    // Neon PostgreSQL connection string
-    connectionString:
-        process.env.DATABASE_URL,
-
-    // Neon requires SSL
     ssl: {
         rejectUnauthorized: false
     }
 });
 
 
-// ============================================================
-// TEST DATABASE CONNECTION
-// ============================================================
-
+// Test PostgreSQL connection.
 db.connect((error, client, release) => {
 
     if (error) {
-
         console.error(
             'Database connection failed:',
             error.message
@@ -74,11 +42,9 @@ db.connect((error, client, release) => {
         return;
     }
 
-
     console.log(
         'Connected to Neon PostgreSQL successfully'
     );
-
 
     release();
 });
@@ -110,10 +76,7 @@ app.post('/api/register', async (req, res) => {
     } = req.body;
 
 
-    // --------------------------------------------------------
-    // VALIDATE INPUT
-    // --------------------------------------------------------
-
+    // Validate input.
     if (
         !username ||
         !email ||
@@ -121,31 +84,26 @@ app.post('/api/register', async (req, res) => {
     ) {
 
         return res.status(400).json({
-            message:
-                'กรุณากรอกข้อมูลให้ครบถ้วน'
+            message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
         });
     }
 
 
     try {
 
-        // ----------------------------------------------------
-        // CHECK EXISTING USER
-        // ----------------------------------------------------
-
-        const checkUser =
-            await db.query(
-                `
-                SELECT id
-                FROM users
-                WHERE username = $1
-                   OR email = $2
-                `,
-                [
-                    username,
-                    email
-                ]
-            );
+        // Check whether username or email already exists.
+        const checkUser = await db.query(
+            `
+            SELECT id
+            FROM users
+            WHERE username = $1
+               OR email = $2
+            `,
+            [
+                username,
+                email
+            ]
+        );
 
 
         if (checkUser.rows.length > 0) {
@@ -157,43 +115,38 @@ app.post('/api/register', async (req, res) => {
         }
 
 
-        // ----------------------------------------------------
-        // CREATE USER
-        // ----------------------------------------------------
-
-        const result =
-            await db.query(
-                `
-                INSERT INTO users
-                    (
-                        username,
-                        email,
-                        password
-                    )
-                VALUES
-                    (
-                        $1,
-                        $2,
-                        $3
-                    )
-                RETURNING
-                    id,
-                    username,
-                    email
-                `,
-                [
+        // Create new user.
+        const result = await db.query(
+            `
+            INSERT INTO users
+                (
                     username,
                     email,
                     password
-                ]
-            );
+                )
+            VALUES
+                (
+                    $1,
+                    $2,
+                    $3
+                )
+            RETURNING
+                id,
+                username,
+                email
+            `,
+            [
+                username,
+                email,
+                password
+            ]
+        );
 
 
-        // ----------------------------------------------------
-        // SUCCESS
-        // ----------------------------------------------------
-
+        // Return successful response.
         return res.status(201).json({
+
+            status: 'success',
 
             message:
                 'สมัครสมาชิกสำเร็จ!',
@@ -201,6 +154,7 @@ app.post('/api/register', async (req, res) => {
             user:
                 result.rows[0]
         });
+
 
     } catch (error) {
 
@@ -211,8 +165,7 @@ app.post('/api/register', async (req, res) => {
 
 
         return res.status(500).json({
-            message:
-                'Database Error'
+            message: 'Database Error'
         });
     }
 });
@@ -230,10 +183,7 @@ app.post('/api/login', async (req, res) => {
     } = req.body;
 
 
-    // --------------------------------------------------------
-    // VALIDATE INPUT
-    // --------------------------------------------------------
-
+    // Validate input.
     if (
         !username ||
         !password
@@ -248,29 +198,25 @@ app.post('/api/login', async (req, res) => {
 
     try {
 
-        // ----------------------------------------------------
-        // FIND USER
-        // ----------------------------------------------------
-
-        const result =
-            await db.query(
-                `
-                SELECT
-                    id,
-                    username,
-                    email,
-                    password
-                FROM users
-                WHERE username = $1
-                   OR email = $1
-                `,
-                [
-                    username
-                ]
-            );
+        // Find user by username OR email.
+        const result = await db.query(
+            `
+            SELECT
+                id,
+                username,
+                email,
+                password
+            FROM users
+            WHERE username = $1
+               OR email = $1
+            `,
+            [
+                username
+            ]
+        );
 
 
-        // User doesn't exist
+        // User doesn't exist.
         if (result.rows.length === 0) {
 
             return res.status(401).json({
@@ -280,17 +226,11 @@ app.post('/api/login', async (req, res) => {
         }
 
 
-        const user =
-            result.rows[0];
+        const user = result.rows[0];
 
 
-        // ----------------------------------------------------
-        // CHECK PASSWORD
-        // ----------------------------------------------------
-
-        if (
-            user.password !== password
-        ) {
+        // Check password.
+        if (user.password !== password) {
 
             return res.status(401).json({
                 message:
@@ -299,26 +239,21 @@ app.post('/api/login', async (req, res) => {
         }
 
 
-        // ----------------------------------------------------
-        // LOGIN SUCCESS
-        // ----------------------------------------------------
-
+        // Login successful.
         return res.json({
+
+            status: 'success',
 
             message:
                 'เข้าสู่ระบบสำเร็จ',
 
             user: {
-                id:
-                    user.id,
-
-                username:
-                    user.username,
-
-                email:
-                    user.email
+                id: user.id,
+                username: user.username,
+                email: user.email
             }
         });
+
 
     } catch (error) {
 
@@ -329,8 +264,7 @@ app.post('/api/login', async (req, res) => {
 
 
         return res.status(500).json({
-            message:
-                'Database Error'
+            message: 'Database Error'
         });
     }
 });
@@ -342,42 +276,39 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/users/:id', async (req, res) => {
 
-    const userId =
-        req.params.id;
+    const userId = req.params.id;
 
 
     try {
 
-        const result =
-            await db.query(
-                `
-                SELECT
-                    id,
-                    username,
-                    email,
-                    created_at
-                FROM users
-                WHERE id = $1
-                `,
-                [
-                    userId
-                ]
-            );
+        const result = await db.query(
+            `
+            SELECT
+                id,
+                username,
+                email,
+                created_at
+            FROM users
+            WHERE id = $1
+            `,
+            [
+                userId
+            ]
+        );
 
 
         if (result.rows.length === 0) {
 
             return res.status(404).json({
-                message:
-                    'User not found'
+                message: 'User not found'
             });
         }
 
 
         return res.json({
-            user:
-                result.rows[0]
+            user: result.rows[0]
         });
+
 
     } catch (error) {
 
@@ -388,8 +319,7 @@ app.get('/api/users/:id', async (req, res) => {
 
 
         return res.status(500).json({
-            message:
-                'Database Error'
+            message: 'Database Error'
         });
     }
 });
@@ -401,35 +331,12 @@ app.get('/api/users/:id', async (req, res) => {
 
 app.listen(PORT, () => {
 
-    console.log(
-        '========================================'
-    );
-
-    console.log(
-        'BACKEND SERVER STARTED'
-    );
-
-    console.log(
-        `PORT: ${PORT}`
-    );
-
-    console.log(
-        'POST /api/register'
-    );
-
-    console.log(
-        'POST /api/login'
-    );
-
-    console.log(
-        'GET /api/users/:id'
-    );
-
-    console.log(
-        'GET /api/health'
-    );
-
-    console.log(
-        '========================================'
-    );
+    console.log('========================================');
+    console.log('BACKEND SERVER STARTED');
+    console.log(`PORT: ${PORT}`);
+    console.log('POST /api/register');
+    console.log('POST /api/login');
+    console.log('GET /api/users/:id');
+    console.log('GET /api/health');
+    console.log('========================================');
 });
