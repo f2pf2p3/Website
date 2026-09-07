@@ -1,46 +1,49 @@
-// Dynamic API URL: สลับระหว่าง Localhost กับ Render ตามโดเมนที่รันอยู่
+// ไม่ต้องระบุ Domain บน Render เพราะเป็น Single Web Service (ใช้ Relative Path ได้เลย)
 const API_URL = (
     window.location.hostname === 'localhost' || 
     window.location.hostname === '127.0.0.1'
 )
     ? 'http://localhost:5000'
-    : 'https://your-backend-service.onrender.com'; // Replace with your actual Render Backend URL
+    : ''; // บน Render จะใช้ relative path เช่น /api/users/1 โดยอัตโนมัติ
 
-// Get saved user
+// 1. ตรวจสอบ User ใน LocalStorage
 const savedUser = localStorage.getItem('user');
 
-// No user saved
 if (!savedUser) {
     window.location.href = 'login.html';
 } else {
-    const user = JSON.parse(savedUser);
-    verifyUser(user.id);
+    try {
+        const user = JSON.parse(savedUser);
+        if (user && user.id) {
+            verifyUser(user.id);
+        } else {
+            logout();
+        }
+    } catch (e) {
+        console.error("Invalid JSON in localStorage", e);
+        logout();
+    }
 }
 
-// ========================================
-// Verify User With Database
-// ========================================
+// 2. ดึงข้อมูลล่าสุดจาก Database มายืนยันตัวตน
 async function verifyUser(userId) {
     try {
         const response = await fetch(`${API_URL}/api/users/${userId}`);
 
-        // User does not exist or error
+        // ถ้า User โดนลบ หรือดึงข้อมูลไม่ได้ ให้ล้าง Session แล้วเตะออกไปหน้า Login
         if (!response.ok) {
-            localStorage.removeItem('user');
             alert('Your account no longer exists.');
-            window.location.href = 'login.html';
+            logout();
             return;
         }
 
         const data = await response.json();
-
-        // ดึงข้อมูล user รองรับทั้งแบบส่งกลับมาเป็น { user: {...} } หรือ object ตรงๆ
         const user = data.user || data;
 
-        // Update localStorage with fresh database data
+        // อัปเดตข้อมูลสดใหม่ลง LocalStorage
         localStorage.setItem('user', JSON.stringify(user));
 
-        // Display username & user details (ใส่ Optional Chaining กัน Error Element ไม่พบ)
+        // นำข้อมูลไปแปะแสดงผลบน HTML
         const displayName = document.getElementById('displayName');
         const usernameEl = document.getElementById('username');
         const userUsername = document.getElementById('userUsername');
@@ -59,15 +62,13 @@ async function verifyUser(userId) {
     }
 }
 
-// ========================================
-// Logout
-// ========================================
+// 3. ฟังก์ชัน Logout
 function logout() {
     localStorage.removeItem('user');
     window.location.href = 'login.html';
 }
 
-// ผูก Event Listener เมื่อ DOM โหลดเสร็จสิ้น (ป้องกัน Error Element หาไม่เจอ)
+// 4. ผูก Event Listener เมื่อ DOM โหลดเสร็จ
 document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logoutBtn');
     const logoutBtn2 = document.getElementById('logoutBtn2');

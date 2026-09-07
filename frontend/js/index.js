@@ -1,23 +1,30 @@
-// Dynamic API URL สลับระหว่าง Localhost กับ Render
+// ไม่ต้องระบุ Domain บน Render เพราะเป็น Single Web Service (ใช้ Relative Path ได้เลย)
 const API_URL = (
     window.location.hostname === 'localhost' || 
     window.location.hostname === '127.0.0.1'
 )
     ? 'http://localhost:5000'
-    : 'https://your-backend-service.onrender.com'; //  ใส่ URL Backend บน Render ของคุณ
+    : '';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Get logged-in user
-    let user = JSON.parse(localStorage.getItem('user'));
+    // 1. ดึงข้อมูล User และป้องกัน JSON Parse Error
+    let user = null;
+    try {
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) user = JSON.parse(savedUser);
+    } catch (e) {
+        console.error("Invalid JSON in localStorage", e);
+        localStorage.removeItem('user');
+    }
+
     const authButtons = document.querySelector('.auth-buttons');
 
     if (authButtons) {
-        if (user) {
-            // (Optional) ตรวจสอบกับ Database ว่าผู้ใช้นี้ยังคงมีอยู่อย่างถูกต้อง
+        // 2. ตรวจสอบข้อมูลกับ Database
+        if (user && user.id) {
             try {
                 const res = await fetch(`${API_URL}/api/users/${user.id}`);
                 if (!res.ok) {
-                    // หากผู้ใช้โดนลบหรือไม่มีในระบบ ให้ล้าง localStorage
                     localStorage.removeItem('user');
                     user = null;
                 }
@@ -26,19 +33,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
+        // 3. แสดงผล UI ปุ่ม Login / Register หรือ Profile
         if (user) {
-            // User is logged in
             authButtons.innerHTML = `
                 <a href="dashboard.html" class="login-btn">
                     ${user.username}
                 </a>
-
                 <button id="logoutBtn" class="register-btn">
                     Logout
                 </button>
             `;
 
-            // Logout ONLY when Logout is clicked
             const logoutBtn = document.getElementById('logoutBtn');
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', () => {
@@ -48,12 +53,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
         } else {
-            // User is not logged in
             authButtons.innerHTML = `
                 <a href="login.html" class="login-btn">
                     Login
                 </a>
-
                 <a href="register.html" class="register-btn">
                     Register
                 </a>

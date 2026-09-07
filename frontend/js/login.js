@@ -1,14 +1,15 @@
-// Dynamic API URL: สลับระหว่าง Localhost กับ Render ตามโดเมนที่รันอยู่
+// ไม่ต้องระบุ Domain บน Render เพราะเป็น Single Web Service (ใช้ Relative Path ได้เลย)
 const API_URL = (
     window.location.hostname === 'localhost' || 
     window.location.hostname === '127.0.0.1'
 )
     ? 'http://localhost:5000'
-    : 'https://your-backend-service.onrender.com'; // ใส่ URL Backend บน Render ของคุณที่นี่
+    : '';
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('loginForm');
     const message = document.getElementById('message');
+    const submitBtn = form?.querySelector('button[type="submit"]');
 
     if (form) {
         form.addEventListener('submit', async function (e) {
@@ -17,13 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
 
-            // ล้างข้อความแจ้งเตือนเดิมก่อนเริ่มส่ง Request
             if (message) message.textContent = '';
 
-            const userData = {
-                username: username,
-                password: password
-            };
+            // ปิดการใช้งานปุ่มชั่วคราวขณะรอ Request
+            if (submitBtn) submitBtn.disabled = true;
+
+            const userData = { username, password };
 
             try {
                 const response = await fetch(`${API_URL}/api/login`, {
@@ -40,23 +40,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || 'Login failed');
                 }
 
-                console.log('Login result:', data);
-
-                // บันทึกข้อมูลผู้ใช้ลง localStorage
+                // บันทึกข้อมูลผู้ใช้และเปลี่ยนหน้า
                 localStorage.setItem('user', JSON.stringify(data.user));
 
-                if (message) message.textContent = data.message;
+                if (message) message.textContent = data.message || 'Login successful!';
 
-                // ย้ายหน้าไปยัง dashboard.html
                 window.location.href = 'dashboard.html';
 
             } catch (error) {
                 console.error('Login error:', error);
 
-                // แสดงข้อความที่ได้จาก Backend หรือ fallback ข้อความเริ่มต้น
                 if (message) {
                     message.textContent = error.message || 'Invalid Username/Email or Password';
                 }
+            } finally {
+                // คืนค่าปุ่มให้กดได้ปกติหากเกิด Error
+                if (submitBtn) submitBtn.disabled = false;
             }
         });
     }

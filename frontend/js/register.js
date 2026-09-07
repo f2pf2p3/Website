@@ -1,10 +1,10 @@
-// Dynamic API URL: สลับระหว่าง Localhost กับ Render ตามโดเมนที่รันอยู่
+// ไม่ต้องระบุ Domain บน Render เพราะเป็น Single Web Service (ใช้ Relative Path ได้เลย)
 const API_URL = (
     window.location.hostname === 'localhost' || 
     window.location.hostname === '127.0.0.1'
 )
     ? 'http://localhost:5000'
-    : 'https://your-backend-service.onrender.com'; // ใส่ URL Backend บน Render ของคุณที่นี่
+    : '';
 
 document.addEventListener('DOMContentLoaded', () => {
     const username = document.getElementById("username");
@@ -12,11 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = document.getElementById("password");
     const confirmPassword = document.getElementById("confirmPassword");
     const button = document.getElementById("registerBtn");
-    const message = document.getElementById("message"); // ( Optional) แสดงข้อความบนหน้าเว็บ
+    const message = document.getElementById("message");
 
     if (button) {
         button.addEventListener("click", async function (e) {
-            e.preventDefault(); // ป้องกันไม่ให้ Form รีโหลดหน้าเว็บ
+            e.preventDefault();
 
             // 1. ตรวจสอบการกรอกข้อมูลเบื้องต้น
             if (!username.value || !email.value || !password.value || !confirmPassword.value) {
@@ -36,6 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert("รหัสผ่านยืนยันไม่ตรงกัน");
                 return;
             }
+
+            // ปิดการใช้งานปุ่มชั่วคราวป้องกันการกดซ้ำ
+            button.disabled = true;
 
             // 4. เตรียมข้อมูลส่งไปยัง Backend API
             const userData = {
@@ -59,10 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || 'Registration failed');
                 }
 
-                console.log('ผลลัพธ์จากเซิร์ฟเวอร์:', data);
                 alert(data.message || "สมัครสมาชิกสำเร็จ!");
-
-                // ย้ายไปยังหน้า Login เมื่อสมัครสำเร็จ
                 window.location.href = 'login.html';
 
             } catch (error) {
@@ -71,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (message) {
                     message.textContent = error.message;
                 }
+            } finally {
+                // คืนค่าปุ่มให้ใช้งานได้ปกติหากเกิด Error
+                button.disabled = false;
             }
         });
     }
