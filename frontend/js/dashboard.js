@@ -1,10 +1,5 @@
 // ไม่ต้องระบุ Domain บน Render เพราะเป็น Single Web Service (ใช้ Relative Path ได้เลย)
-const API_URL = (
-    window.location.hostname === 'localhost' || 
-    window.location.hostname === '127.0.0.1'
-)
-    ? 'http://localhost:5000'
-    : ''; // บน Render จะใช้ relative path เช่น /api/users/1 โดยอัตโนมัติ
+const API_URL = 'https://website-frontend-jpu0.onrender.com';
 
 // 1. ตรวจสอบ User ใน LocalStorage
 const savedUser = localStorage.getItem('user');

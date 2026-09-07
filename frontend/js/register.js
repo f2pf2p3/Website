@@ -2,9 +2,8 @@
 // API CONFIGURATION
 // ============================================================
 
-// Frontend และ Backend อยู่ Render Web Service เดียวกัน
-// จึงใช้ Relative Path
-const API_URL = '';
+
+const API_URL = 'https://website-frontend-jpu0.onrender.com';
 
 
 // ============================================================
