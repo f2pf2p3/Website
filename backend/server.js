@@ -181,7 +181,33 @@ app.post('/api/register', async (req, res) => {
     }
 
 });
+app.get('/api/users', async (req, res) => {
 
+    try {
+
+        const result = await db.query(`
+            SELECT
+                id,
+                username,
+                email,
+                created_at
+            FROM users
+            ORDER BY id DESC
+        `);
+
+        res.json(result.rows);
+
+    } catch (error) {
+
+        console.error('Get Users Error:', error);
+
+        res.status(500).json({
+            message: 'Database Error'
+        });
+
+    }
+
+});
 
 // ============================================================
 // START SERVER
