@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dashboard</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <header>
+        <nav class="navbar">
+
+            <!-- Logo -->
+            <a href="index.html" class="logo">
+                MyWebsite
+            </a>
+
+
+            <!-- Navigation Links -->
+            <div class="nav-links">
+
+                <a href="index.html">
+                    Home
+                </a>
+
+                <a href="dashboard.html">
+                    Dashboard
+                </a>
+
+            </div>
+
+
+            <!-- User / Logout -->
+            <div class="auth-buttons">
+
+                <!-- Logged-in username -->
+                <a href="dashboard.html"
+                   class="login-btn"
+                   id="displayName">
+                    User
+                </a>
+
+                <!-- Logout -->
+                <button id="logoutBtn" class="register-btn">
+                    Logout
+                </button>
+
+            </div>
+
+        </nav>
+    </header>
+
+
+    <!-- Dashboard -->
+    <main class="dashboard-page">
+
+        <div class="dashboard-container">
+
+            <h1>
+                Dashboard
+            </h1>
+
+            <p class="dashboard-welcome">
+                Welcome back,
+                <strong id="username">
+                    User
+                </strong>!
+            </p>
+
+
+            <!-- Account Information -->
+            <section class="dashboard-card">
+
+                <h2>
+                    Account Information
+                </h2>
+
+                <div class="user-info">
+
+                    <div>
+                        <span class="info-label">
+                            Username
+                        </span>
+
+                        <span id="userUsername">
+                            -
+                        </span>
+                    </div>
+
+
+                    <div>
+                        <span class="info-label">
+                            Email
+                        </span>
+
+                        <span id="userEmail">
+                            -
+                        </span>
+                    </div>
+
+
+                    <div>
+                        <span class="info-label">
+                            User ID
+                        </span>
+
+                        <span id="userId">
+                            -
+                        </span>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Quick Actions -->
+            <section class="dashboard-card">
+
+                <h2>
+                    Quick Actions
+                </h2>
+
+                <div class="dashboard-actions">
+
+                    <a href="index.html"
+                       class="primary-btn">
+                        Home
+                    </a>
+
+                    <button id="logoutBtn2"
+                            class="secondary-btn">
+                        Logout
+                    </button>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+
+    <!-- Footer -->
+    <footer>
+
+        <p>
+            &copy; 2026 MyWebsite.
+            All rights reserved.
+        </p>
+
+    </footer>
+
+
+    <!-- Dashboard JavaScript -->
+    <script src="js/dashboard.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <h2>Admin Panel</h2>
+
+            <nav>
+                <a href="#" class="active">Dashboard</a>
+                <a href="#">Users</a>
+                <a href="http://localhost/phpmyadmin/index.php?route=/sql&pos=0&db=db_user&table=users">Database</a>
+                <a href="#">API</a>
+                <a href="#">Settings</a>
+            </nav>
+        </aside>
+
+        <!-- Main -->
+        <main class="main">
+
+            <header>
+                <div>
+                    <h1>Dashboard</h1>
+                    <p>Welcome back, Admin.</p>
+                </div>
+
+                <button id="logoutBtn">Logout</button>
+            </header>
+
+            <!-- Statistics -->
+            <section class="stats">
+
+                <div class="card">
+                    <span>Total Users</span>
+                    <strong id="totalUsers">a</strong>
+                </div>
+
+                <div class="card">
+                    <span>Active Users</span>
+                    <strong>-</strong>
+                </div>
+
+                <div class="card">
+                    <span>API Requests</span>
+                    <strong>-</strong>
+                </div>
+
+                <div class="card">
+                    <span>Database</span>
+                    <strong class="connected">Connected</strong>
+                </div>
+
+            </section>
+
+            <!-- Recent Users -->
+            <section class="panel">
+
+                <div class="panel-header">
+                    <h2>Recent Users</h2>
+                    <button id="refreshBtn">Refresh</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Created At</th>
+                            <th>Status</th>
+                            <th>Delete</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="userTable">
+                        
+                    </tbody>
+                </table>
+
+            </section>
+
+        </main>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

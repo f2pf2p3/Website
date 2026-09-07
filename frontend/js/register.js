@@ -1,5 +1,5 @@
 // --- Connect Server ---
-
+const API_URL = 'http://localhost:5000';
 // --- Password Checking
 const username = document.getElementById("username");
 const email = document.getElementById("email");
@@ -32,22 +32,32 @@ if (button) {
                 password: password.value
             };
 
-            fetch('website-backend-70pc.onrender.com/api/register', {
+            fetch(`${API_URL}/api/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(userData)
             })
-                .then(response => response.json())
+                .then(async response => {
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Registration failed');
+                    }
+
+                    window.location.href = 'login.html';
+
+                    return data;
+                })
                 .then(data => {
                     console.log('ผลลัพธ์จากเซิร์ฟเวอร์:', data);
                     alert(data.message);
                 })
-                .catch(error => console.error('Error:', error));
-
-
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert(error.message);
+                });
         }
-
     });
 }
