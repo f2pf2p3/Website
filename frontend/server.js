@@ -1,16 +1,14 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware to parse JSON bodies
-app.use(express.json());
+app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Sample Route
 app.get('/', (req, res) => {
-  res.send('Hello from your Express server!');
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Start Server
-app.listen(PORT, () => {
-    console.log('Frontend server running at: http://localhost:' + PORT);
+app.listen(3000, () => {
+  console.log('Server running on http://localhost:3000');
 });

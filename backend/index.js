@@ -8,8 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 5000; // Backend use 5000 frontend use 3000
 
 // --- .env path ---
-require('dotenv').config({ 
-    path: path.resolve(__dirname, '../.env') 
+require('dotenv').config({
+    path: path.resolve(__dirname, '../.env')
 });
 
 // --- MIDDLEWARE ---
@@ -28,6 +28,12 @@ const db = mysql.createConnection({
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
 
+    console.log("Register data:", {
+            username,
+            email,
+            password: password ? "received" : "missing"
+        });
+
     // Check information 
     if (!username || !email || !password) {
         return res.status(400).json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" })
@@ -35,33 +41,41 @@ app.post('/api/register', async (req, res) => {
 
     try {
         // 2. เข้ารหัสรหัสผ่าน (Hashing Password) เพื่อความปลอดภัย
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 3. คำสั่ง SQL สำหรับเพิ่มข้อมูลลงในตาราง users
-        const sql = "INSERT INTO users (username, email, password) VALUES (?, ?, ?)";
+        const sql = `
+        INSERT INTO users (username, email, password)
+        VALUES (?, ?, ?)
+    `;
 
-        db.query(sql, [username, email, hashedPassword], (err, result) => {
-            if (err) {
-                // หากจับได้ว่า username หรือ email ซ้ำ (เพราะเราตั้ง UNIQUE ไว้)
-                if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(400).json({ message: "Username หรือ Email นี้ถูกใช้งานแล้ว" });
+        db.query(sql,
+            [username, email, hashedPassword],
+            (err, result) => {
+                if (err) {
+                    // หากจับได้ว่า username หรือ email ซ้ำ (เพราะเราตั้ง UNIQUE ไว้)
+                    if (err.code === 'ER_DUP_ENTRY') {
+                        return res.status(400).json({ message: "Username หรือ Email นี้ถูกใช้งานแล้ว" });
+                    }
+                    return res.status(500).json({ error: err.message });
                 }
-                return res.status(500).json({ error: err.message });
-            }
 
-            // 4. ส่งสถานะตอบกลับเมื่อบันทึกสำเร็จ
-            res.status(201).json({
-                status: "success",
-                message: "สมัครสมาชิกสำเร็จแล้ว!",
-                userId: result.insertId
+                // 4. ส่งสถานะตอบกลับเมื่อบันทึกสำเร็จ
+                res.status(201).json({
+                    status: "success",
+                    message: "สมัครสมาชิกสำเร็จแล้ว!",
+                    userId: result.insertId
+                });
             });
-        });
 
     } catch (error) {
-        res.status(500).json({ message: "Server error: 500" });
+        console.error("Server error:", error);
+        return res.status(500).json({ message: "Server error", error: error.message });
     }
 
+});
+
+app.get('/', (req, res) => {
+    res.send('Backend is running');
 });
 
 app.listen(PORT, () => {

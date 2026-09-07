@@ -4,26 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Website</title>
-     <!-- Modern standard: Loading external script in the head with 'defer' -->
-    <script src="script.js"defer></script>
+
 </head>
 
 <body>
     <div class="register-box">
         <div class="input-box">
             Username
-            <input type ="username" id="username" name = "username" placeholder="username">
+            <input type="username" id="username" name="username" placeholder="username">
             Email
             <input type="email" id="email" name="email" required>
             Password
-            <input type = "password" id ="password" placeholder="Password">
+            <input type="password" id="password" placeholder="Password">
             Repeat Password
-            <input type = "password" id ="confirmPassword" placeholder="Confirm Password">
-            <button type="submit" id = "registerBtn">Register</button>
+            <input type="password" id="confirmPassword" placeholder="Confirm Password">
+            <div id="message" style="display:none;">
+                <h3>Password must contain the following:</h3>
+                <p id="letter" class="invalid">A lowercase letter</p>
+                <p id="length" class="invalid">Minimum 8 characters</p>
+            </div>
+            <button type="submit" id="registerBtn">Register</button>
 
-            
+
         </div>
     </div>
+    <script src="script.js"></script>
 </body>
 
 </html>
