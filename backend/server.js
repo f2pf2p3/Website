@@ -55,12 +55,12 @@ app.get('/api/users/:id', async (req, res) => {
 // --- FRONTEND ROUTES (วางไว้ล่างสุดเสมอ) ---
 
 // หน้าแรก
-app.get('/', (req, res) => {
+app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
 });
 
 // Catch-all Route สำหรับรองรับ SPA
-app.get('/*', (req, res) => {
+app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
 });
 
