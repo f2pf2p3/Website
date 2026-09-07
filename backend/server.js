@@ -11,16 +11,54 @@ const PORT = process.env.PORT || 5000;
 
 
 // ============================================================
+// MIDDLEWARE
+// ============================================================
+
+app.use(cors());
+
+app.use(express.json());
+
+
+// ============================================================
+// SERVE WEBSITE
+// ============================================================
+
+// Serve index.html, style.css, script.js
+// from the backend folder.
+app.use(express.static(__dirname));
+
+
+// ============================================================
+// MAIN PAGE
+// ============================================================
+
+// Open backend/index.html at:
+//
+// https://your-backend.onrender.com/
+app.get('/', (req, res) => {
+
+    res.sendFile(
+        path.join(__dirname, 'index.html')
+    );
+
+});
+
+
+// ============================================================
 // DATABASE
 // ============================================================
 
 const db = new Pool({
+
     connectionString: process.env.DATABASE_URL,
 
     ssl: {
         rejectUnauthorized: false
     }
+
 });
+
+
 // ============================================================
 // HEALTH CHECK
 // ============================================================
@@ -47,6 +85,8 @@ app.post('/api/register', async (req, res) => {
         password
     } = req.body;
 
+
+    // Check required fields.
     if (!username || !email || !password) {
 
         return res.status(400).json({
@@ -55,8 +95,10 @@ app.post('/api/register', async (req, res) => {
 
     }
 
+
     try {
 
+        // Check existing username or email.
         const checkUser = await db.query(
             `
             SELECT id
@@ -64,40 +106,73 @@ app.post('/api/register', async (req, res) => {
             WHERE username = $1
                OR email = $2
             `,
-            [username, email]
+            [
+                username,
+                email
+            ]
         );
 
+
+        // User already exists.
         if (checkUser.rows.length > 0) {
 
             return res.status(400).json({
-                message: 'Username หรือ Email นี้มีผู้ใช้งานแล้ว'
+                message:
+                    'Username หรือ Email นี้มีผู้ใช้งานแล้ว'
             });
 
         }
 
+
+        // Insert new user.
         const result = await db.query(
             `
             INSERT INTO users
-                (username, email, password)
+                (
+                    username,
+                    email,
+                    password
+                )
             VALUES
-                ($1, $2, $3)
+                (
+                    $1,
+                    $2,
+                    $3
+                )
             RETURNING
                 id,
                 username,
                 email
             `,
-            [username, email, password]
+            [
+                username,
+                email,
+                password
+            ]
         );
 
+
+        // Registration successful.
         return res.status(201).json({
+
             status: 'success',
-            message: 'สมัครสมาชิกสำเร็จ!',
-            user: result.rows[0]
+
+            message:
+                'สมัครสมาชิกสำเร็จ!',
+
+            user:
+                result.rows[0]
+
         });
+
 
     } catch (error) {
 
-        console.error('Register Error:', error);
+        console.error(
+            'Register Error:',
+            error
+        );
+
 
         return res.status(500).json({
             message: 'Database Error'
@@ -115,11 +190,27 @@ app.post('/api/register', async (req, res) => {
 app.listen(PORT, () => {
 
     console.log('========================================');
-    console.log('BACKEND SERVER STARTED');
-    console.log(`PORT: ${PORT}`);
-    console.log('GET  /');
-    console.log('GET  /api/health');
-    console.log('POST /api/register');
+
+    console.log(
+        'BACKEND SERVER STARTED'
+    );
+
+    console.log(
+        `PORT: ${PORT}`
+    );
+
+    console.log(
+        'GET  /'
+    );
+
+    console.log(
+        'GET  /api/health'
+    );
+
+    console.log(
+        'POST /api/register'
+    );
+
     console.log('========================================');
 
 });
