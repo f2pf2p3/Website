@@ -1,5 +1,10 @@
-// ไม่ต้องระบุ Domain บน Render เพราะเป็น Single Web Service (ใช้ Relative Path ได้เลย)
-const API_URL = 'https://website-frontend-jpu0.onrender.com';
+// Dynamic API URL: สลับระหว่าง Localhost กับ Render ตามโดเมนที่รันอยู่
+const API_URL = (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1'
+)
+    ? 'http://localhost:5000'
+    : 'https://website-backend-70pc.onrender.com'; // ใส่ URL Backend บน Render ของคุณที่นี่
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('loginForm');
