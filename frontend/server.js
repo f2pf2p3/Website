@@ -1,570 +1,348 @@
 // ============================================================
-// API CONFIGURATION
+// BACKEND API URL
 // ============================================================
 
-// Frontend and backend are served by the same Render Web Service.
-// Therefore, we use relative API URLs.
-const API_URL = '';
-
-
-// ============================================================
-// HELPER: READ SERVER RESPONSE
-// ============================================================
-
-// Read a response from the backend.
+// LOCAL:
+// http://localhost:5000
 //
-// We read text first so that an HTML error page such as
-// "Cannot POST /api/register" can be detected clearly.
-async function readResponse(response) {
-
-    // Read the complete response body as text.
-    const responseText = await response.text();
-
-    // Show useful debugging information in the browser console.
-    console.log('HTTP Status:', response.status);
-    console.log('Response:', responseText);
-
-
-    // Try to convert the response to JSON.
-    let data;
-
-    try {
-
-        data = JSON.parse(responseText);
-
-    } catch (error) {
-
-        // The backend returned something that isn't JSON.
-        console.error(
-            'Server returned non-JSON response:',
-            responseText
-        );
-
-        throw new Error(
-            `Server returned ${response.status} instead of JSON`
-        );
-    }
-
-
-    // Return both the HTTP response and parsed JSON.
-    return {
-        response,
-        data
-    };
-}
+// PRODUCTION:
+// Replace this with your deployed backend URL.
+//
+// Example:
+// https://my-backend.onrender.com
+const API_URL = 'http://localhost:5000';
 
 
 // ============================================================
-// REGISTER USER
+// REGISTER
 // ============================================================
 
-// Send a registration request to the backend.
-async function registerUser(
-    username,
-    email,
-    password
-) {
-
-    // Send POST request to /api/register.
-    const response = await fetch(
-        `${API_URL}/api/register`,
-        {
-            // HTTP method.
-            method: 'POST',
-
-            // Tell Express that the request body is JSON.
-            headers: {
-                'Content-Type': 'application/json'
-            },
-
-            // Convert JavaScript object into JSON.
-            body: JSON.stringify({
-                username: username.trim(),
-                email: email.trim(),
-                password: password
-            })
-        }
-    );
+document.addEventListener('DOMContentLoaded', () => {
 
+    const registerButton =
+        document.getElementById('registerBtn');
 
-    // Read and parse the backend response.
-    const {
-        data
-    } = await readResponse(response);
+    // If this button doesn't exist,
+    // we're not on the register page.
+    if (registerButton) {
 
+        registerButton.addEventListener('click', async (event) => {
 
-    // Check whether the HTTP request succeeded.
-    if (!response.ok) {
+            event.preventDefault();
 
-        throw new Error(
-            data.message ||
-            'Registration failed'
-        );
-    }
+            const username =
+                document.getElementById('username');
 
+            const email =
+                document.getElementById('email');
 
-    // Return successful registration data.
-    return data;
-}
+            const password =
+                document.getElementById('password');
 
+            const confirmPassword =
+                document.getElementById('confirmPassword');
 
-// ============================================================
-// LOGIN USER
-// ============================================================
+            const message =
+                document.getElementById('message');
 
-// Send a login request to the backend.
-async function loginUser(
-    username,
-    password
-) {
 
-    // Send POST request to /api/login.
-    const response = await fetch(
-        `${API_URL}/api/login`,
-        {
-            // HTTP method.
-            method: 'POST',
+            // Validate fields
+            if (
+                !username.value.trim() ||
+                !email.value.trim() ||
+                !password.value ||
+                !confirmPassword.value
+            ) {
 
-            // Request contains JSON.
-            headers: {
-                'Content-Type': 'application/json'
-            },
+                alert('กรุณากรอกข้อมูลให้ครบทุกช่อง');
 
-            // Send login information.
-            body: JSON.stringify({
-                username: username.trim(),
-                password: password
-            })
-        }
-    );
+                return;
+            }
 
 
-    // Read and parse backend response.
-    const {
-        data
-    } = await readResponse(response);
+            // Validate password length
+            if (password.value.length < 8) {
 
+                alert(
+                    'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร'
+                );
 
-    // Check HTTP status.
-    if (!response.ok) {
+                return;
+            }
 
-        throw new Error(
-            data.message ||
-            'Login failed'
-        );
-    }
 
+            // Validate password confirmation
+            if (
+                password.value !==
+                confirmPassword.value
+            ) {
 
-    // Return successful login data.
-    return data;
-}
+                alert(
+                    'รหัสผ่านยืนยันไม่ตรงกัน'
+                );
 
+                return;
+            }
 
-// ============================================================
-// CHECK BACKEND
-// ============================================================
 
-// Check whether the backend is running.
-async function checkBackend() {
+            registerButton.disabled = true;
 
-    // Request the backend health endpoint.
-    const response = await fetch(
-        `${API_URL}/api/health`
-    );
 
+            try {
 
-    // Read the response.
-    const {
-        data
-    } = await readResponse(response);
+                // Send data to backend
+                const response = await fetch(
+                    `${API_URL}/api/register`,
+                    {
+                        method: 'POST',
 
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
 
-    // Return health information.
-    return data;
-}
+                        body: JSON.stringify({
+                            username:
+                                username.value.trim(),
 
+                            email:
+                                email.value.trim(),
 
-// ============================================================
-// REGISTER PAGE
-// ============================================================
+                            password:
+                                password.value
+                        })
+                    }
+                );
 
-// Wait until the HTML document has loaded.
-document.addEventListener(
-    'DOMContentLoaded',
-    () => {
 
-        // Find the Register button.
-        const registerButton =
-            document.getElementById('registerBtn');
+                // Read response as text first
+                const responseText =
+                    await response.text();
 
+                console.log(
+                    'Register status:',
+                    response.status
+                );
 
-        // If there is no Register button,
-        // this is probably not the registration page.
-        if (!registerButton) {
-            return;
-        }
+                console.log(
+                    'Register response:',
+                    responseText
+                );
 
 
-        // ====================================================
-        // GET INPUT ELEMENTS
-        // ====================================================
-
-        // Username input.
-        const username =
-            document.getElementById('username');
-
-        // Email input.
-        const email =
-            document.getElementById('email');
-
-        // Password input.
-        const password =
-            document.getElementById('password');
-
-        // Confirm password input.
-        const confirmPassword =
-            document.getElementById('confirmPassword');
-
-        // Message element.
-        const message =
-            document.getElementById('message');
-
-
-        // ====================================================
-        // REGISTER BUTTON
-        // ====================================================
-
-        // Listen for Register button click.
-        registerButton.addEventListener(
-            'click',
-            async (event) => {
-
-                // Prevent normal HTML form submission.
-                event.preventDefault();
-
-
-                // ==================================================
-                // VALIDATE ELEMENTS
-                // ==================================================
-
-                // Make sure all required HTML elements exist.
-                if (
-                    !username ||
-                    !email ||
-                    !password ||
-                    !confirmPassword
-                ) {
-
-                    console.error(
-                        'Registration form element is missing.'
-                    );
-
-                    return;
-                }
-
-
-                // ==================================================
-                // VALIDATE INPUT
-                // ==================================================
-
-                // Check that every field has a value.
-                if (
-                    !username.value.trim() ||
-                    !email.value.trim() ||
-                    !password.value ||
-                    !confirmPassword.value
-                ) {
-
-                    alert(
-                        'กรุณากรอกข้อมูลให้ครบทุกช่อง'
-                    );
-
-                    return;
-                }
-
-
-                // ==================================================
-                // VALIDATE PASSWORD LENGTH
-                // ==================================================
-
-                // Password must contain at least 8 characters.
-                if (password.value.length < 8) {
-
-                    alert(
-                        'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร'
-                    );
-
-                    return;
-                }
-
-
-                // ==================================================
-                // VALIDATE PASSWORD MATCH
-                // ==================================================
-
-                // Make sure both password fields match.
-                if (
-                    password.value !==
-                    confirmPassword.value
-                ) {
-
-                    alert(
-                        'รหัสผ่านยืนยันไม่ตรงกัน'
-                    );
-
-                    return;
-                }
-
-
-                // ==================================================
-                // DISABLE BUTTON
-                // ==================================================
-
-                // Prevent duplicate registration requests.
-                registerButton.disabled = true;
-
-
-                // ==================================================
-                // CLEAR OLD MESSAGE
-                // ==================================================
-
-                // Remove any previous error message.
-                if (message) {
-                    message.textContent = '';
-                }
-
+                // Convert response to JSON
+                let data;
 
                 try {
 
-                    // ==================================================
-                    // SEND REGISTRATION REQUEST
-                    // ==================================================
-
-                    const data =
-                        await registerUser(
-                            username.value,
-                            email.value,
-                            password.value
-                        );
-
-
-                    // ==================================================
-                    // SUCCESS
-                    // ==================================================
-
-                    // Show success message.
-                    alert(
-                        data.message ||
-                        'สมัครสมาชิกสำเร็จ!'
-                    );
-
-
-                    // Go to Login page.
-                    window.location.href =
-                        '/login.html';
+                    data =
+                        JSON.parse(responseText);
 
                 } catch (error) {
 
-                    // ==================================================
-                    // ERROR
-                    // ==================================================
-
-                    // Print error in browser console.
-                    console.error(
-                        'Registration Error:',
-                        error
+                    throw new Error(
+                        `Backend returned ${response.status}: ${responseText}`
                     );
-
-
-                    // Show error to user.
-                    alert(
-                        error.message ||
-                        'เกิดข้อผิดพลาดในการสมัครสมาชิก'
-                    );
-
-
-                    // Show error on the page if the element exists.
-                    if (message) {
-
-                        message.textContent =
-                            error.message;
-                    }
-
-                } finally {
-
-                    // ==================================================
-                    // ENABLE BUTTON
-                    // ==================================================
-
-                    // Allow the user to click Register again.
-                    registerButton.disabled = false;
-                }
-            }
-        );
-    }
-);
-
-
-// ============================================================
-// LOGIN PAGE
-// ============================================================
-
-// Wait until the login page has loaded.
-document.addEventListener(
-    'DOMContentLoaded',
-    () => {
-
-        // Find Login button.
-        const loginButton =
-            document.getElementById('loginBtn');
-
-
-        // If there is no Login button,
-        // this probably isn't the login page.
-        if (!loginButton) {
-            return;
-        }
-
-
-        // ====================================================
-        // GET LOGIN ELEMENTS
-        // ====================================================
-
-        // Username or email input.
-        const username =
-            document.getElementById('username');
-
-        // Password input.
-        const password =
-            document.getElementById('password');
-
-        // Message element.
-        const message =
-            document.getElementById('message');
-
-
-        // ====================================================
-        // LOGIN BUTTON
-        // ====================================================
-
-        // Handle Login button click.
-        loginButton.addEventListener(
-            'click',
-            async (event) => {
-
-                // Prevent normal form submission.
-                event.preventDefault();
-
-
-                // ==================================================
-                // VALIDATE INPUT
-                // ==================================================
-
-                if (
-                    !username ||
-                    !password
-                ) {
-
-                    console.error(
-                        'Login form element is missing.'
-                    );
-
-                    return;
                 }
 
 
-                // Check required fields.
-                if (
-                    !username.value.trim() ||
-                    !password.value
-                ) {
+                // Backend returned an error
+                if (!response.ok) {
 
-                    alert(
-                        'กรุณากรอก Username และ Password'
+                    throw new Error(
+                        data.message ||
+                        'Registration failed'
                     );
-
-                    return;
                 }
 
 
-                // Disable button during login.
-                loginButton.disabled = true;
+                // Registration successful
+                alert(
+                    data.message ||
+                    'สมัครสมาชิกสำเร็จ!'
+                );
 
 
-                // Clear previous message.
+                // Go to login page
+                window.location.href =
+                    '/login.html';
+
+            } catch (error) {
+
+                console.error(
+                    'Registration Error:',
+                    error
+                );
+
+
+                alert(
+                    error.message ||
+                    'เกิดข้อผิดพลาดในการสมัครสมาชิก'
+                );
+
+
                 if (message) {
-                    message.textContent = '';
+
+                    message.textContent =
+                        error.message;
                 }
 
+            } finally {
+
+                registerButton.disabled = false;
+            }
+        });
+    }
+
+
+    // ========================================================
+    // LOGIN
+    // ========================================================
+
+    const loginButton =
+        document.getElementById('loginBtn');
+
+
+    // If this button exists, we're on the login page.
+    if (loginButton) {
+
+        loginButton.addEventListener('click', async (event) => {
+
+            event.preventDefault();
+
+
+            const username =
+                document.getElementById('username');
+
+            const password =
+                document.getElementById('password');
+
+            const message =
+                document.getElementById('message');
+
+
+            // Validate fields
+            if (
+                !username.value.trim() ||
+                !password.value
+            ) {
+
+                alert(
+                    'กรุณากรอก Username และ Password'
+                );
+
+                return;
+            }
+
+
+            loginButton.disabled = true;
+
+
+            try {
+
+                // Send login request to backend
+                const response = await fetch(
+                    `${API_URL}/api/login`,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+
+                        body: JSON.stringify({
+                            username:
+                                username.value.trim(),
+
+                            password:
+                                password.value
+                        })
+                    }
+                );
+
+
+                const responseText =
+                    await response.text();
+
+
+                console.log(
+                    'Login status:',
+                    response.status
+                );
+
+                console.log(
+                    'Login response:',
+                    responseText
+                );
+
+
+                let data;
 
                 try {
 
-                    // ==================================================
-                    // SEND LOGIN REQUEST
-                    // ==================================================
-
-                    const data =
-                        await loginUser(
-                            username.value,
-                            password.value
-                        );
-
-
-                    // ==================================================
-                    // SAVE USER INFORMATION
-                    // ==================================================
-
-                    // Save the logged-in user locally.
-                    localStorage.setItem(
-                        'user',
-                        JSON.stringify(data.user)
-                    );
-
-
-                    // ==================================================
-                    // LOGIN SUCCESS
-                    // ==================================================
-
-                    alert(
-                        data.message ||
-                        'เข้าสู่ระบบสำเร็จ'
-                    );
-
-
-                    // Change this to your dashboard page
-                    // if you have one.
-                    window.location.href =
-                        '/index.html';
+                    data =
+                        JSON.parse(responseText);
 
                 } catch (error) {
 
-                    // Print error.
-                    console.error(
-                        'Login Error:',
-                        error
+                    throw new Error(
+                        `Backend returned ${response.status}: ${responseText}`
                     );
-
-
-                    // Show error.
-                    alert(
-                        error.message ||
-                        'เข้าสู่ระบบไม่สำเร็จ'
-                    );
-
-
-                    // Display error on page.
-                    if (message) {
-
-                        message.textContent =
-                            error.message;
-                    }
-
-                } finally {
-
-                    // Enable button again.
-                    loginButton.disabled = false;
                 }
+
+
+                // Login failed
+                if (!response.ok) {
+
+                    throw new Error(
+                        data.message ||
+                        'Login failed'
+                    );
+                }
+
+
+                // Save user information
+                localStorage.setItem(
+                    'user',
+                    JSON.stringify(data.user)
+                );
+
+
+                // Login successful
+                alert(
+                    data.message ||
+                    'เข้าสู่ระบบสำเร็จ'
+                );
+
+
+                // Change this to your dashboard
+                // when you have one.
+                window.location.href =
+                    '/index.html';
+
+            } catch (error) {
+
+                console.error(
+                    'Login Error:',
+                    error
+                );
+
+
+                alert(
+                    error.message ||
+                    'เข้าสู่ระบบไม่สำเร็จ'
+                );
+
+
+                if (message) {
+
+                    message.textContent =
+                        error.message;
+                }
+
+            } finally {
+
+                loginButton.disabled = false;
             }
-        );
+        });
     }
-);
+});
