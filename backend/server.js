@@ -115,73 +115,56 @@ db.connect((err, client, release) => {
 // ============================================================
 
 // API สำหรับสมัครสมาชิก
+// Handle user registration.
 app.post('/api/register', async (req, res) => {
-
-    // รับข้อมูลจาก Frontend
+    // Get registration data from the request body.
     const { username, email, password } = req.body;
 
-    // ตรวจสอบว่ากรอกข้อมูลครบหรือไม่
+    // Check that all required fields were provided.
     if (!username || !email || !password) {
-
         return res.status(400).json({
             message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
         });
     }
 
     try {
-
-        // ตรวจสอบ Username หรือ Email ซ้ำ
+        // Check whether username or email already exists.
         const checkUser = await db.query(
-            `
-            SELECT id
-            FROM users
-            WHERE username = $1 OR email = $2
-            `,
+            'SELECT id FROM users WHERE username = $1 OR email = $2',
             [username, email]
         );
 
-        // ถ้าพบ User ซ้ำ
+        // Stop registration if the account already exists.
         if (checkUser.rows.length > 0) {
-
             return res.status(400).json({
                 message: 'Username หรือ Email นี้มีผู้ใช้งานแล้ว'
             });
         }
 
-        // SQL สำหรับเพิ่ม User ใหม่
-        const insertQuery = `
-            INSERT INTO users (username, email, password)
-            VALUES ($1, $2, $3)
-            RETURNING id, username, email
-        `;
-
-        // เพิ่มข้อมูล User ลง Database
+        // Insert the new user into Neon PostgreSQL.
         const result = await db.query(
-            insertQuery,
+            `INSERT INTO users (username, email, password)
+             VALUES ($1, $2, $3)
+             RETURNING id, username, email`,
             [username, email, password]
         );
 
-        // ส่งผลลัพธ์กลับไป Browser
+        // Return JSON to register.js.
         return res.status(201).json({
             message: 'สมัครสมาชิกสำเร็จ!',
             user: result.rows[0]
         });
 
-    } catch (err) {
+    } catch (error) {
+        // Print the actual database error in Render logs.
+        console.error('Register Error:', error);
 
-        // แสดง Error ใน Terminal
-        console.error(
-            'Register Error:',
-            err
-        );
-
-        // ส่ง Error กลับ Browser
+        // Return JSON instead of an HTML error page.
         return res.status(500).json({
             message: 'Database Error'
         });
     }
 });
-
 
 // ============================================================
 // LOGIN API
