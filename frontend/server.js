@@ -1,23 +1,70 @@
+// ============================================================
+// IMPORTS
+// ============================================================
+
 const express = require('express');
 const path = require('path');
 
+
+// ============================================================
+// CREATE EXPRESS APP
+// ============================================================
+
 const app = express();
+
+
+// ============================================================
+// PORT
+// ============================================================
+
+// Frontend ใช้ port 3000
 const PORT = process.env.PORT || 3000;
 
-// เสิร์ฟไฟล์ Static ทั้งหมดในโฟลเดอร์ frontend (CSS, JS, Images)
+
+// ============================================================
+// STATIC FILES
+// ============================================================
+
+// ให้ Express เสิร์ฟไฟล์ทั้งหมดใน frontend folder
+// เช่น:
+// /index.html
+// /script.js
+// /style.css
+// /images/...
 app.use(express.static(__dirname));
 
-// หน้าหลัก
+
+// ============================================================
+// HOME PAGE
+// ============================================================
+
+// เปิดหน้าแรก
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(
+        path.join(__dirname, 'index.html')
+    );
 });
 
-// Catch-all Route สำหรับ SPA และส่งไฟล์ index.html (ใช้ Regex ป้องกัน pathToRegexpError)
-app.get(/(.*)/, (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+
+// ============================================================
+// SPA FALLBACK
+// ============================================================
+
+// ถ้า URL ไม่ใช่ไฟล์ static
+// ให้กลับไปที่ index.html
+app.get(/^(?!\/api\/).*/, (req, res) => {
+    res.sendFile(
+        path.join(__dirname, 'index.html')
+    );
 });
 
-// --- START SERVER ---
+
+// ============================================================
+// START SERVER
+// ============================================================
+
 app.listen(PORT, () => {
-    console.log(`Frontend Web Server running on port: ${PORT}`);
+    console.log(
+        `Frontend Web Server running on port ${PORT}`
+    );
 });
