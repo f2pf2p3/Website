@@ -1,15 +1,26 @@
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const { Pool } = require('pg');
+
+require('dotenv').config();
+
+const app = express();
+
+const PORT = process.env.PORT || 5000;
+
+
 // ============================================================
 // DATABASE
 // ============================================================
 
 const db = new Pool({
     connectionString: process.env.DATABASE_URL,
+
     ssl: {
         rejectUnauthorized: false
     }
 });
-
-
 // ============================================================
 // HEALTH CHECK
 // ============================================================
