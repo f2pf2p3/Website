@@ -27,8 +27,9 @@ users table
 |---|---|---|
 | id | INT(11) | PRIMARY KEY, AUTO_INCREMENT |
 | username | VARCHAR(500) | NOT NULL, UNIQUE |
-| email | VARCHAR(255) | NOT NULL, UNIQUE |
-| password | VARCHAR(100) | NOT NULL |
+| password | VARCHAR(255) | NOT NULL, UNIQUE |
+| email | VARCHAR(100) | NOT NULL |
+| created_at | TIMESTAMP | NOT NULL |
 
 ## Q&A Section
 

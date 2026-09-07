@@ -5,7 +5,7 @@ const mysql = require('mysql2');
 const bcrypt = require('bcrypt'); // Encrypt Tool
 
 const app = express();
-const PORT = process.env.PORT || 5000; // Backend use 5000 frontend use 3000
+const PORT = process.env.DB_PORT; // Backend use 5000 frontend use 3000
 
 // --- .env path ---
 require('dotenv').config({
@@ -18,10 +18,10 @@ app.use(express.json()) // allow server read JSON when Frontend communicate
 
 // --- SETTING MySQL CONNECTION ---
 const db = mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '', // XAMPP ''
-    database: process.env.DB_NAME || 'db_user' // database schema name
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD, // XAMPP ''
+    database: process.env.DB_NAME// database schema name
 });
 
 // --- API: REGISTER ---

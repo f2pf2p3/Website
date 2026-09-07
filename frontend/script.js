@@ -32,7 +32,7 @@ if (button) {
                 password: password.value
             };
 
-            fetch('http://localhost:5000/api/register', {
+            fetch('website-backend-70pc.onrender.com/api/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
