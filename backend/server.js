@@ -245,6 +245,73 @@ app.delete('/api/users/:id', async (req, res) => {
     }
 
 });
+
+app.post('/api/login', async (req, res) => {
+
+    const { email, password } = req.body;
+
+    // ตรวจสอบว่ากรอกข้อมูลครบหรือไม่
+    if (!email || !password) {
+        return res.status(400).json({
+            message: 'กรุณากรอก Email และ Password'
+        });
+    }
+
+    try {
+
+        // ค้นหา user จาก Neon
+        const result = await db.query(
+            `
+            SELECT
+                id,
+                username,
+                email,
+                password
+            FROM users
+            WHERE email = $1
+            `,
+            [email]
+        );
+
+        // ไม่พบ user
+        if (result.rows.length === 0) {
+            return res.status(401).json({
+                message: 'Email หรือ Password ไม่ถูกต้อง'
+            });
+        }
+
+        const user = result.rows[0];
+
+        // ตรวจสอบ password
+        // หมายเหตุ: ตอนนี้ใช้ plaintext ตามระบบเดิมของคุณ
+        if (password !== user.password) {
+            return res.status(401).json({
+                message: 'Email หรือ Password ไม่ถูกต้อง'
+            });
+        }
+
+        // Login สำเร็จ
+        return res.json({
+            status: 'success',
+            message: 'เข้าสู่ระบบสำเร็จ',
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            }
+        });
+
+    } catch (error) {
+
+        console.error('Login Error:', error);
+
+        return res.status(500).json({
+            message: 'Database Error'
+        });
+
+    }
+
+});
 // ============================================================
 // START SERVER
 // ============================================================
