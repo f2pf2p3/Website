@@ -2,16 +2,17 @@
 // IMPORTS
 // ============================================================
 
-// Express สำหรับสร้าง Web Server และ API
+// Express creates the web server and API.
 const express = require('express');
 
-// Path สำหรับจัดการตำแหน่งไฟล์
+// Path handles file paths.
 const path = require('path');
 
-// CORS สำหรับอนุญาต Cross-Origin Request
+// CORS allows requests from other origins.
+// It is useful during local development.
 const cors = require('cors');
 
-// PostgreSQL Pool สำหรับเชื่อมต่อ Neon Database
+// PostgreSQL Pool connects to Neon PostgreSQL.
 const { Pool } = require('pg');
 
 
@@ -19,7 +20,8 @@ const { Pool } = require('pg');
 // LOAD ENVIRONMENT VARIABLES
 // ============================================================
 
-// โหลด .env เฉพาะตอนรันบนเครื่อง Local
+// Load .env when running locally.
+// Render already provides environment variables directly.
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config({
         path: path.join(__dirname, '../.env')
@@ -31,7 +33,7 @@ if (process.env.NODE_ENV !== 'production') {
 // CREATE EXPRESS APP
 // ============================================================
 
-// สร้าง Express Application
+// Create Express application.
 const app = express();
 
 
@@ -39,7 +41,8 @@ const app = express();
 // PORT
 // ============================================================
 
-// ใช้ PORT จาก Render หรือใช้ 5000 ตอนรัน Local
+// Render provides process.env.PORT.
+// 5000 is used when running locally.
 const PORT = process.env.PORT || 5000;
 
 
@@ -47,36 +50,26 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARE
 // ============================================================
 
-// เปิดใช้งาน CORS
+// Enable CORS.
 app.use(cors());
 
-// ให้ Express อ่าน JSON จาก Request Body
+// Allow Express to read JSON request bodies.
 app.use(express.json());
 
-
-// ============================================================
-// STATIC FILES
-// ============================================================
-
-// Serve ไฟล์ทั้งหมดใน backend folder
-// เช่น:
-// /index.html
-// /script.js
-// /style.css
-// /images/...
+// Serve frontend files from the same backend folder.
 app.use(express.static(__dirname));
 
 
 // ============================================================
-// DATABASE CONNECTION
+// DATABASE
 // ============================================================
 
-// สร้าง PostgreSQL Connection Pool
+// Create PostgreSQL connection pool.
 const db = new Pool({
-    // อ่าน Database URL จาก Environment Variable
+    // Get Neon connection string from environment variable.
     connectionString: process.env.DATABASE_URL,
 
-    // Neon PostgreSQL ต้องใช้ SSL
+    // Neon requires SSL.
     ssl: {
         rejectUnauthorized: false
     }
@@ -84,13 +77,13 @@ const db = new Pool({
 
 
 // ============================================================
-// TEST DATABASE CONNECTION
+// DATABASE CONNECTION TEST
 // ============================================================
 
-// ทดสอบการเชื่อมต่อ Database ตอนเปิด Server
+// Test the database connection when the server starts.
 db.connect((err, client, release) => {
 
-    // ถ้าเชื่อมต่อไม่ได้
+    // Database connection failed.
     if (err) {
         console.error(
             'Database connection error:',
@@ -100,13 +93,28 @@ db.connect((err, client, release) => {
         return;
     }
 
-    // แสดงข้อความเมื่อเชื่อมต่อสำเร็จ
+    // Database connection succeeded.
     console.log(
         'Connected to Neon PostgreSQL successfully'
     );
 
-    // คืน Connection กลับ Pool
+    // Return the connection to the pool.
     release();
+});
+
+
+// ============================================================
+// HEALTH CHECK
+// ============================================================
+
+// Test whether the backend is running.
+app.get('/api/health', (req, res) => {
+
+    // Return JSON response.
+    res.json({
+        status: 'ok',
+        message: 'Backend is running'
+    });
 });
 
 
@@ -114,92 +122,155 @@ db.connect((err, client, release) => {
 // REGISTER API
 // ============================================================
 
-// API สำหรับสมัครสมาชิก
-// Handle user registration.
+// Handle new user registration.
 app.post('/api/register', async (req, res) => {
-    // Get registration data from the request body.
-    const { username, email, password } = req.body;
 
-    // Check that all required fields were provided.
+    // Get registration data from the request.
+    const {
+        username,
+        email,
+        password
+    } = req.body;
+
+
+    // --------------------------------------------------------
+    // VALIDATE INPUT
+    // --------------------------------------------------------
+
+    // Make sure all fields were provided.
     if (!username || !email || !password) {
+
         return res.status(400).json({
             message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
         });
     }
 
+
     try {
+
+        // ----------------------------------------------------
+        // CHECK EXISTING USER
+        // ----------------------------------------------------
+
         // Check whether username or email already exists.
         const checkUser = await db.query(
-            'SELECT id FROM users WHERE username = $1 OR email = $2',
+            `
+            SELECT id
+            FROM users
+            WHERE username = $1
+               OR email = $2
+            `,
             [username, email]
         );
 
-        // Stop registration if the account already exists.
+
+        // User already exists.
         if (checkUser.rows.length > 0) {
+
             return res.status(400).json({
-                message: 'Username หรือ Email นี้มีผู้ใช้งานแล้ว'
+                message:
+                    'Username หรือ Email นี้มีผู้ใช้งานแล้ว'
             });
         }
 
-        // Insert the new user into Neon PostgreSQL.
+
+        // ----------------------------------------------------
+        // INSERT USER
+        // ----------------------------------------------------
+
+        // Insert new user into Neon PostgreSQL.
         const result = await db.query(
-            `INSERT INTO users (username, email, password)
-             VALUES ($1, $2, $3)
-             RETURNING id, username, email`,
-            [username, email, password]
+            `
+            INSERT INTO users
+                (username, email, password)
+            VALUES
+                ($1, $2, $3)
+            RETURNING id, username, email
+            `,
+            [
+                username,
+                email,
+                password
+            ]
         );
 
-        // Return JSON to register.js.
+
+        // ----------------------------------------------------
+        // SUCCESS RESPONSE
+        // ----------------------------------------------------
+
+        // Return the newly created user.
         return res.status(201).json({
             message: 'สมัครสมาชิกสำเร็จ!',
             user: result.rows[0]
         });
 
     } catch (error) {
-        // Print the actual database error in Render logs.
-        console.error('Register Error:', error);
 
-        // Return JSON instead of an HTML error page.
+        // Log database error in Render logs.
+        console.error(
+            'Register Error:',
+            error
+        );
+
+        // Return JSON error.
         return res.status(500).json({
             message: 'Database Error'
         });
     }
 });
 
+
 // ============================================================
 // LOGIN API
 // ============================================================
 
-// API สำหรับ Login
+// Handle user login.
 app.post('/api/login', async (req, res) => {
 
-    // รับ Username หรือ Email และ Password
-    const { username, password } = req.body;
+    // Get login information.
+    const {
+        username,
+        password
+    } = req.body;
 
-    // ตรวจสอบข้อมูล
+
+    // --------------------------------------------------------
+    // VALIDATE INPUT
+    // --------------------------------------------------------
+
     if (!username || !password) {
 
         return res.status(400).json({
-            message: 'กรุณากรอก Username และ Password'
+            message:
+                'กรุณากรอก Username และ Password'
         });
     }
 
+
     try {
 
-        // ค้นหา User จาก Username หรือ Email
-        const sql = `
-            SELECT id, username, email, password
-            FROM users
-            WHERE username = $1 OR email = $1
-        `;
+        // ----------------------------------------------------
+        // FIND USER
+        // ----------------------------------------------------
 
-        // Query Database
+        // Search by username OR email.
         const result = await db.query(
-            sql,
+            `
+            SELECT
+                id,
+                username,
+                email,
+                password
+            FROM users
+            WHERE username = $1
+               OR email = $1
+            `,
             [username]
         );
 
-        // ถ้าไม่พบ User
+
+        // User doesn't exist.
         if (result.rows.length === 0) {
 
             return res.status(401).json({
@@ -208,10 +279,15 @@ app.post('/api/login', async (req, res) => {
             });
         }
 
-        // เก็บข้อมูล User
+
+        // Get user from query result.
         const user = result.rows[0];
 
-        // ตรวจสอบ Password
+
+        // ----------------------------------------------------
+        // CHECK PASSWORD
+        // ----------------------------------------------------
+
         if (user.password !== password) {
 
             return res.status(401).json({
@@ -220,8 +296,13 @@ app.post('/api/login', async (req, res) => {
             });
         }
 
-        // ส่งผลลัพธ์ Login สำเร็จ
+
+        // ----------------------------------------------------
+        // LOGIN SUCCESS
+        // ----------------------------------------------------
+
         return res.json({
+
             message: 'เข้าสู่ระบบสำเร็จ',
 
             user: {
@@ -231,15 +312,15 @@ app.post('/api/login', async (req, res) => {
             }
         });
 
-    } catch (err) {
+    } catch (error) {
 
-        // แสดง Error ใน Terminal
+        // Log error.
         console.error(
             'Login Error:',
-            err
+            error
         );
 
-        // ส่ง Error กลับ Browser
+        // Return JSON error.
         return res.status(500).json({
             message: 'Database Error'
         });
@@ -248,31 +329,34 @@ app.post('/api/login', async (req, res) => {
 
 
 // ============================================================
-// GET USER BY ID
+// GET USER
 // ============================================================
 
-// API สำหรับดึงข้อมูล User
+// Get user information by ID.
 app.get('/api/users/:id', async (req, res) => {
 
-    // รับ User ID จาก URL
+    // Get ID from URL.
     const userId = req.params.id;
+
 
     try {
 
-        // SQL สำหรับค้นหา User
-        const sql = `
-            SELECT id, username, email, created_at
+        // Query user.
+        const result = await db.query(
+            `
+            SELECT
+                id,
+                username,
+                email,
+                created_at
             FROM users
             WHERE id = $1
-        `;
-
-        // Query Database
-        const result = await db.query(
-            sql,
+            `,
             [userId]
         );
 
-        // ถ้าไม่พบ User
+
+        // User not found.
         if (result.rows.length === 0) {
 
             return res.status(404).json({
@@ -280,20 +364,21 @@ app.get('/api/users/:id', async (req, res) => {
             });
         }
 
-        // ส่งข้อมูล User กลับ
+
+        // Return user.
         return res.json({
             user: result.rows[0]
         });
 
-    } catch (err) {
+    } catch (error) {
 
-        // แสดง Error
+        // Log error.
         console.error(
             'Fetch user error:',
-            err
+            error
         );
 
-        // ส่ง Error กลับ
+        // Return JSON error.
         return res.status(500).json({
             message: 'Database error'
         });
@@ -302,28 +387,12 @@ app.get('/api/users/:id', async (req, res) => {
 
 
 // ============================================================
-// HEALTH CHECK
+// FRONTEND HOME PAGE
 // ============================================================
 
-// API สำหรับตรวจสอบว่า Server ทำงานอยู่
-app.get('/api/health', (req, res) => {
-
-    // ส่งสถานะกลับ
-    return res.json({
-        status: 'ok',
-        message: 'Backend is running'
-    });
-});
-
-
-// ============================================================
-// HOME PAGE
-// ============================================================
-
-// Route หน้าแรก
+// Serve index.html.
 app.get('/', (req, res) => {
 
-    // ส่ง index.html กลับไป Browser
     res.sendFile(
         path.join(__dirname, 'index.html')
     );
@@ -331,14 +400,54 @@ app.get('/', (req, res) => {
 
 
 // ============================================================
+// SPA FALLBACK
+// ============================================================
+
+// Only handle non-API GET requests.
+// API routes above will not be affected.
+app.get(
+    /^(?!\/api\/).*/,
+    (req, res) => {
+
+        res.sendFile(
+            path.join(__dirname, 'index.html')
+        );
+    }
+);
+
+
+// ============================================================
 // START SERVER
 // ============================================================
 
-// เริ่มต้น Server
+// Start Express server.
 app.listen(PORT, () => {
 
-    // แสดง URL ของ Server
     console.log(
-        `Server running on port ${PORT}`
+        '========================================'
+    );
+
+    console.log(
+        'BACKEND SERVER STARTED'
+    );
+
+    console.log(
+        `PORT: ${PORT}`
+    );
+
+    console.log(
+        'REGISTER: POST /api/register'
+    );
+
+    console.log(
+        'LOGIN: POST /api/login'
+    );
+
+    console.log(
+        'HEALTH: GET /api/health'
+    );
+
+    console.log(
+        '========================================'
     );
 });
