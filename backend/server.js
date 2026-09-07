@@ -248,45 +248,50 @@ app.delete('/api/users/:id', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
 
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    console.log('Login request:', {
-        email,
-        hasPassword: !!password
-    });
-
-    if (!email || !password) {
+    // ตรวจสอบข้อมูล
+    if (!username || !password) {
         return res.status(400).json({
-            message: 'กรุณากรอก Email และ Password'
+            message: 'กรุณากรอก Username และ Password'
         });
     }
 
     try {
 
+        // ค้นหา user จาก Neon
         const result = await db.query(
             `
-            SELECT id, username, email, password
+            SELECT
+                id,
+                username,
+                email,
+                password
             FROM users
-            WHERE email = $1
+            WHERE username = $1
             `,
-            [email]
+            [username]
         );
 
+        // ไม่พบ Username
         if (result.rows.length === 0) {
             return res.status(401).json({
-                message: 'Email หรือ Password ไม่ถูกต้อง'
+                message: 'Username หรือ Password ไม่ถูกต้อง'
             });
         }
 
         const user = result.rows[0];
 
+        // ตรวจสอบ Password
+        // ตอนนี้เป็น plaintext ตาม database เดิม
         if (password !== user.password) {
             return res.status(401).json({
-                message: 'Email หรือ Password ไม่ถูกต้อง'
+                message: 'Username หรือ Password ไม่ถูกต้อง'
             });
         }
 
-        res.json({
+        // Login สำเร็จ
+        return res.status(200).json({
             status: 'success',
             message: 'เข้าสู่ระบบสำเร็จ',
             user: {
@@ -300,9 +305,10 @@ app.post('/api/login', async (req, res) => {
 
         console.error('Login Error:', error);
 
-        res.status(500).json({
+        return res.status(500).json({
             message: 'Database Error'
         });
+
     }
 });
 // ============================================================
