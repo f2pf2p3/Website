@@ -1,0 +1,12 @@
+{
+  "name": "my-app-frontend",
+  "version": "1.0.0",
+  "description": "Frontend static files",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'No build step required for static HTML/CSS/JS'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
