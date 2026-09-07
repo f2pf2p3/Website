@@ -1,6 +1,10 @@
 const express = require('express');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+// 1. โหลด dotenv เฉพาะเมื่อเทสบนเครื่อง local เพื่อไม่ให้ Render เกิด Error
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config({ path: path.join(__dirname, '.env') });
+}
 
 const { Pool } = require('pg');
 
@@ -16,19 +20,27 @@ const db = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
+// ตรวจสอบการเชื่อมต่อ Database
+db.connect((err) => {
+    if (err) {
+        console.error('Database connection error:', err.stack);
+    } else {
+        console.log('Connected to Neon PostgreSQL');
+    }
+});
+
 // --- STATIC FILES SETUP ---
-// ชี้ไปยังโฟลเดอร์ปัจจุบันของ backend
-const staticPath = path.join(__dirname);
+// ชี้ไปยังโฟลเดอร์ frontend (ปรับตามโครงสร้างจริง เช่น '../frontend' หรือ __dirname)
+const staticPath = path.join(__dirname, '../frontend'); 
 app.use(express.static(staticPath));
 
-// --- API ROUTES (ต้องวางก่อน Catch-all Route '*') ---
+// --- API ROUTES ---
 
 // 1. GET USER BY ID
 app.get('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
 
     try {
-        // เปลี่ยนจาก ? เป็น $1 สำหรับ PostgreSQL
         const sql = 'SELECT id, username, email, created_at FROM users WHERE id = $1';
         const result = await db.query(sql, [userId]);
 
@@ -44,14 +56,14 @@ app.get('/api/users/:id', async (req, res) => {
 });
 
 
-// --- FRONTEND ROUTES (ต้องวางไว้ล่างสุดเสมอ) ---
+// --- FRONTEND ROUTES ---
 
 // หน้าแรก
 app.get('/', (req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
 });
 
-// Catch-all Route สำหรับ SPA (ต้องวางล่างสุดของ Route ทั้งหมด)
+// Catch-all Route สำหรับ SPA (วางล่างสุดเสมอ)
 app.get('/*', (req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
 });
