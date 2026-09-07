@@ -1,44 +1,62 @@
 const express = require('express');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+const { Pool } = require('pg');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
-// 1. ระบุโฟลเดอร์สำหรับ Static Files ให้ชัดเจน
-// หากไฟล์ HTML/CSS อยู่โฟลเดอร์เดียวกับไฟล์นี้ ให้ใช้ path.join(__dirname, 'public') หรือ path.join(__dirname)
-const staticPath = path.join(__dirname, '../'); // หรือเปลี่ยนเป็น path.join(__dirname, 'public') ตามโครงสร้างจริง
+// Middleware
+app.use(express.json());
+
+// --- DATABASE CONNECTION (NEON POSTGRES) ---
+const db = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
+
+// --- STATIC FILES SETUP ---
+// ชี้ไปยังโฟลเดอร์ปัจจุบันของ backend
+const staticPath = path.join(__dirname);
 app.use(express.static(staticPath));
 
-// 2. เสิร์ฟหน้า index.html
-app.get('/', (req, res) => {
-    res.sendFile(path.join(staticPath, 'index.html'));
-});
+// --- API ROUTES (ต้องวางก่อน Catch-all Route '*') ---
 
-// 3. (Optional) Catch-all route สำหรับ SPA (ถ้าอนาคตใช้ React/Vue หรือมีหลายหน้า)
-app.get('*', (req, res) => {
-    res.sendFile(path.join(staticPath, 'index.html'));
-});
-
-// --- API: GET USER BY ID ---
+// 1. GET USER BY ID
 app.get('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
 
     try {
-        const sql = 'SELECT id, username, email, created_at FROM users WHERE id = ?';
-        const [results] = await db.execute(sql, [userId]);
+        // เปลี่ยนจาก ? เป็น $1 สำหรับ PostgreSQL
+        const sql = 'SELECT id, username, email, created_at FROM users WHERE id = $1';
+        const result = await db.query(sql, [userId]);
 
-        if (results.length === 0) {
+        if (result.rows.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        res.json({ user: results[0] });
+        res.json({ user: result.rows[0] });
     } catch (err) {
         console.error("Fetch user by ID error:", err);
         return res.status(500).json({ error: 'Database error' });
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Frontend running on port: ${PORT}`);
+
+// --- FRONTEND ROUTES (ต้องวางไว้ล่างสุดเสมอ) ---
+
+// หน้าแรก
+app.get('/', (req, res) => {
+    res.sendFile(path.join(staticPath, 'index.html'));
 });
 
+// Catch-all Route สำหรับ SPA (ต้องวางล่างสุดของ Route ทั้งหมด)
+app.get('/*', (req, res) => {
+    res.sendFile(path.join(staticPath, 'index.html'));
+});
+
+// --- START SERVER ---
+app.listen(PORT, () => {
+    console.log(`Server running on port: ${PORT}`);
+});
