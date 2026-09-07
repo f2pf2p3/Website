@@ -208,7 +208,43 @@ app.get('/api/users', async (req, res) => {
     }
 
 });
+app.delete('/api/users/:id', async (req, res) => {
 
+    const userId = req.params.id;
+
+    try {
+
+        const result = await db.query(
+            `
+            DELETE FROM users
+            WHERE id = $1
+            RETURNING id
+            `,
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                message: 'User not found'
+            });
+        }
+
+        res.json({
+            status: 'success',
+            message: 'User deleted successfully'
+        });
+
+    } catch (error) {
+
+        console.error('Delete User Error:', error);
+
+        res.status(500).json({
+            message: 'Database Error'
+        });
+
+    }
+
+});
 // ============================================================
 // START SERVER
 // ============================================================
