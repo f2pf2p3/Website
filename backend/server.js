@@ -1,37 +1,32 @@
 const express = require('express');
 const path = require('path');
+const cors = require('cors');
 const { Pool } = require('pg');
 
-// 1. โหลด dotenv เฉพาะเมื่อรันบนเครื่อง Local
+// โหลด dotenv เฉพาะเมื่อรันบนเครื่อง Local
 if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config({ path: path.join(__dirname, '.env') });
+    require('dotenv').config({ path: path.join(__dirname, '../.env') });
 }
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware อ่าน JSON Body
+// Permissive CORS รองรับการแยก Server และ อ่าน JSON Body
+app.use(cors());
 app.use(express.json());
 
-// 2. เชื่อมต่อ Neon PostgreSQL
+// เชื่อมต่อ Database (Neon PostgreSQL)
 const db = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
 db.connect((err) => {
-    if (err) {
-        console.error('Database connection error:', err.stack);
-    } else {
-        console.log('Connected to Neon PostgreSQL successfully');
-    }
+    if (err) console.error('Database connection error:', err.stack);
+    else console.log('Connected to Neon PostgreSQL successfully');
 });
 
-// 3. ตั้งค่า Static Files (ชี้ไปที่โฟลเดอร์ frontend)
-const staticPath = path.join(__dirname, '../frontend');
-app.use(express.static(staticPath));
-
-// --- API ROUTES (วางไว้ก่อน Frontend Routes เสมอ) ---
+// --- API ROUTES ---
 
 // 1. REGISTER API
 app.post('/api/register', async (req, res) => {
@@ -42,7 +37,6 @@ app.post('/api/register', async (req, res) => {
     }
 
     try {
-        // ตรวจสอบว่ามี Username หรือ Email ซ้ำในระบบหรือไม่
         const checkUser = await db.query(
             'SELECT id FROM users WHERE username = $1 OR email = $2', 
             [username, email]
@@ -52,7 +46,6 @@ app.post('/api/register', async (req, res) => {
             return res.status(400).json({ message: 'Username หรือ Email นี้มีผู้ใช้งานแล้ว' });
         }
 
-        // บันทึกผู้ใช้ใหม่ลง Database
         const insertQuery = `
             INSERT INTO users (username, email, password) 
             VALUES ($1, $2, $3) 
@@ -80,22 +73,15 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
-        // ค้นหาผู้ใช้จาก Username หรือ Email
         const sql = 'SELECT id, username, email, password FROM users WHERE username = $1 OR email = $1';
         const result = await db.query(sql, [username]);
 
-        if (result.rows.length === 0) {
+        if (result.rows.length === 0 || result.rows[0].password !== password) {
             return res.status(401).json({ message: 'Username/Email หรือ Password ไม่ถูกต้อง' });
         }
 
         const user = result.rows[0];
 
-        // ตรวจสอบ Password (เปรียบเทียบข้อความตรงๆ)
-        if (user.password !== password) {
-            return res.status(401).json({ message: 'Username/Email หรือ Password ไม่ถูกต้อง' });
-        }
-
-        // ส่งข้อมูลผู้ใช้กลับไป (ละเว้น password เพื่อความปลอดภัย)
         res.json({
             message: 'เข้าสู่ระบบสำเร็จ',
             user: {
@@ -130,14 +116,19 @@ app.get('/api/users/:id', async (req, res) => {
     }
 });
 
-// --- FRONTEND ROUTES (วางไว้ล่างสุดเสมอ) ---
+// --- FRONTEND ROUTES ---
 
-// Catch-all Route รองรับ SPA (ใช้ Regex เคลียร์ Error path-to-regexp)
+// เสิร์ฟ index.html ฝั่ง Backend สำหรับเช็คสถานะ
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Catch-all Route ฝั่ง Backend
 app.get(/(.*)/, (req, res) => {
-    res.sendFile(path.join(staticPath, 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // --- START SERVER ---
 app.listen(PORT, () => {
-    console.log(`Server running on port: ${PORT}`);
+    console.log(`Backend API Server running on port: ${PORT}`);
 });
