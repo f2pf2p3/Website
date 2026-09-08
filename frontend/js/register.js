@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!otpRequested) {
                 otpRequested = true;
+                form.classList.add('otp-requested');
                 otpGroup.hidden = false;
                 password.hidden = true;
                 confirmPassword.hidden = true;

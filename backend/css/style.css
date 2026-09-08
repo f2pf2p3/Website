@@ -647,3 +647,190 @@ th {
         padding: 28px 22px;
     }
 }
+
+/* GameVault admin console */
+:root {
+    --admin-bg: #080b12;
+    --admin-panel: #101522;
+    --admin-raised: #171e2d;
+    --admin-text: #edf4ff;
+    --admin-muted: #8793aa;
+    --admin-line: rgba(237, 244, 255, 0.14);
+    --admin-cyan: #67e8f9;
+    --admin-purple: #a78bfa;
+    --admin-red: #fb7185;
+}
+
+body {
+    background: var(--admin-bg);
+    color: var(--admin-text);
+}
+
+.sidebar {
+    background: #0b101b;
+    border-right: 1px solid var(--admin-line);
+}
+
+.sidebar h2 {
+    color: var(--admin-cyan);
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+}
+
+.sidebar a {
+    border-radius: 0;
+    color: var(--admin-muted);
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    background: rgba(103, 232, 249, 0.1);
+    color: var(--admin-cyan);
+}
+
+.main {
+    max-width: none;
+}
+
+header {
+    border-bottom: 1px solid var(--admin-line);
+}
+
+header h1,
+.panel-header h2 {
+    color: var(--admin-text);
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+}
+
+header p,
+.panel-header p,
+.card span {
+    color: var(--admin-muted);
+}
+
+button {
+    border-radius: 0;
+    background: var(--admin-purple);
+    color: var(--admin-bg);
+    font-weight: 700;
+}
+
+button:hover {
+    background: var(--admin-cyan);
+    opacity: 1;
+}
+
+.card,
+.panel {
+    border: 1px solid var(--admin-line);
+    border-radius: 0;
+    background: var(--admin-panel);
+}
+
+.card strong {
+    color: var(--admin-text);
+}
+
+.connected {
+    color: #4ade80 !important;
+}
+
+.panel-header,
+th,
+td {
+    border-color: var(--admin-line);
+}
+
+th {
+    background: var(--admin-raised);
+    color: var(--admin-muted);
+}
+
+td {
+    color: var(--admin-text);
+}
+
+.product-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    gap: 10px;
+    padding: 20px;
+    border-bottom: 1px solid var(--admin-line);
+}
+
+.product-form input,
+.product-form select,
+.admin-product-card select {
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--admin-line);
+    border-radius: 0;
+    outline: 0;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+}
+
+.product-form input::placeholder {
+    color: #64748b;
+}
+
+.admin-product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 20px;
+}
+
+.admin-product-card {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--admin-line);
+    background: var(--admin-raised);
+}
+
+.admin-product-color {
+    width: 48px;
+    height: 58px;
+}
+
+.admin-product-copy {
+    min-width: 0;
+}
+
+.admin-product-copy span,
+.admin-product-copy p {
+    color: var(--admin-muted);
+    font-size: 11px;
+}
+
+.admin-product-copy h3 {
+    margin: 4px 0;
+    color: var(--admin-text);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    font-weight: 400;
+}
+
+.admin-product-card .delete-btn {
+    padding: 8px 10px;
+    background: transparent;
+    border: 1px solid rgba(251, 113, 133, 0.45);
+    color: var(--admin-red);
+    font-size: 11px;
+}
+
+.admin-product-card .delete-btn:hover {
+    background: var(--admin-red);
+    color: var(--admin-bg);
+}
+
+@media (max-width: 900px) {
+    .product-form,
+    .admin-product-grid {
+        grid-template-columns: 1fr;
+    }
+}

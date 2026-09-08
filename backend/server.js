@@ -16,13 +16,81 @@ const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('he
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_RESEND_MS = 60 * 1000;
 const otpChallenges = new Map();
+const carts = new Map();
+const orders = new Map();
+const products = [
+    {
+        id: 'neon-vanguard',
+        name: 'Neon Vanguard',
+        category: 'FPS',
+        price: 129,
+        badge: 'Ranked ready',
+        description: 'Competitive FPS account with a clean history and starter cosmetics.',
+        color: '#67e8f9',
+        mode: 'restock'
+    },
+    {
+        id: 'mythic-realms',
+        name: 'Mythic Realms',
+        category: 'MMORPG',
+        price: 86,
+        badge: 'Level 80',
+        description: 'Endgame character with a complete starter build and rare mount.',
+        color: '#a78bfa',
+        mode: 'restock'
+    },
+    {
+        id: 'kingdom-forged',
+        name: 'Kingdom Forged',
+        category: 'Strategy',
+        price: 740,
+        badge: 'Maxed roster',
+        description: 'Fully upgraded strategy profile with a deep unlock library.',
+        color: '#fbbf24',
+        mode: 'restock'
+    },
+    {
+        id: 'pixel-arcade',
+        name: 'Pixel Arcade',
+        category: 'Indie',
+        price: 58,
+        badge: 'Collector',
+        description: 'Curated indie library account with a stack of acclaimed favorites.',
+        color: '#fb7185',
+        mode: 'restock'
+    },
+    {
+        id: 'drift-league',
+        name: 'Drift League',
+        category: 'Racing',
+        price: 42,
+        badge: 'Garage built',
+        description: 'Racing profile with tuned vehicles, credits, and custom paint jobs.',
+        color: '#fb923c',
+        mode: 'out-of-stock'
+    },
+    {
+        id: 'shadow-ops',
+        name: 'Shadow Ops',
+        category: 'Action',
+        price: 64,
+        badge: 'Loadout ready',
+        description: 'Action account with unlocked loadouts and a polished cosmetic set.',
+        color: '#4ade80',
+        mode: 'restock'
+    }
+];
 
 if (!process.env.JWT_SECRET) {
     console.warn('JWT_SECRET is not configured; generated a temporary secret for this process.');
 }
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+    verify: (req, res, buffer) => {
+        req.rawBody = buffer;
+    }
+}));
 app.use(express.static(__dirname));
 
 
@@ -41,6 +109,10 @@ const mailer = process.env.SMTP_HOST
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD }
     })
     : null;
+const ORDER_NOTIFICATION_EMAIL = process.env.ORDER_NOTIFICATION_EMAIL || 'shogunraiden2006@protonmail.com';
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+const LINE_TO_USER_ID = process.env.LINE_TO_USER_ID;
+const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
 
 function makeOtp() {
     return crypto.randomInt(100000, 1000000).toString();
@@ -63,6 +135,47 @@ async function sendOtp(email, otp, purpose) {
         accepted: result.accepted,
         rejected: result.rejected
     });
+}
+
+async function notifyLine(message) {
+    if (!LINE_CHANNEL_ACCESS_TOKEN || !LINE_TO_USER_ID) return;
+    const response = await fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            to: LINE_TO_USER_ID,
+            messages: [{ type: 'text', text: message }]
+        })
+    });
+    if (!response.ok) throw new Error(`LINE notification failed with ${response.status}`);
+}
+
+async function notifyOrder(order, user) {
+    const itemLines = order.items.map((item) => `- ${item.product.name} x${item.quantity} ($${(item.product.price * item.quantity).toFixed(2)})`).join('\n');
+    const message = [
+        `New GameVault order ${order.id}`,
+        `Customer: ${user.username} (user ${user.id})`,
+        `Total: $${order.total.toFixed(2)}`,
+        'Items:',
+        itemLines
+    ].join('\n');
+    const tasks = [];
+    if (mailer && process.env.SMTP_FROM) {
+        tasks.push(mailer.sendMail({
+            from: process.env.SMTP_FROM,
+            to: ORDER_NOTIFICATION_EMAIL,
+            subject: `[GameVault] New order ${order.id}`,
+            text: `${message}\n\nCustomer email: ${user.email || 'not available'}`
+        }));
+    } else {
+        console.warn('Order email skipped because SMTP is not configured.');
+    }
+    if (LINE_CHANNEL_ACCESS_TOKEN && LINE_TO_USER_ID) tasks.push(notifyLine(message));
+    const results = await Promise.allSettled(tasks);
+    results.filter((result) => result.status === 'rejected').forEach((result) => console.error('Order notification failed:', result.reason));
 }
 
 function createChallenge(key, value) {
@@ -117,8 +230,143 @@ function requireAdmin(req, res, next) {
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { message: 'Too many login attempts. Please try again later.' } });
 const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { message: 'Too many accounts created from this IP. Please try again later.' } });
 
+function getCart(userId) {
+    if (!carts.has(userId)) carts.set(userId, []);
+    return carts.get(userId);
+}
+
+function serializeCart(userId) {
+    const cart = getCart(userId);
+    const items = cart.map((item) => ({
+        ...item,
+        product: products.find((product) => product.id === item.productId)
+    })).filter((item) => item.product);
+    return {
+        items,
+        count: items.reduce((total, item) => total + item.quantity, 0),
+        total: items.reduce((total, item) => total + item.product.price * item.quantity, 0)
+    };
+}
+
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'Backend is running' }));
 app.get('/favicon.ico', (req, res) => res.sendStatus(204));
+
+app.post('/api/line/webhook', (req, res) => {
+    if (LINE_CHANNEL_SECRET) {
+        const signature = req.get('x-line-signature');
+        const digest = crypto.createHmac('sha256', LINE_CHANNEL_SECRET).update(req.rawBody || Buffer.from('')).digest('base64');
+        if (!signature || signature.length !== digest.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest))) {
+            return res.sendStatus(401);
+        }
+    }
+    console.log('LINE webhook received:', req.body?.events?.length || 0, 'event(s)');
+    return res.sendStatus(200);
+});
+
+app.get('/api/products', (req, res) => {
+    const category = req.query.category;
+    const includeUnavailable = req.query.includeUnavailable === 'true';
+    const result = category && category !== 'All'
+        ? products.filter((product) => product.category === category)
+        : products;
+    const visibleProducts = includeUnavailable ? result : result.filter((product) => product.mode !== 'out-of-stock');
+    res.json({ products: visibleProducts, categories: ['All', ...new Set(products.map((product) => product.category))] });
+});
+
+app.get('/api/products/:id', (req, res) => {
+    const product = products.find((item) => item.id === req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    return res.json({ product });
+});
+
+app.post('/api/admin/products', authenticateToken, requireAdmin, (req, res) => {
+    const { name, category, price, badge, description, color, mode } = req.body;
+    const numericPrice = Number(price);
+    if (!name?.trim() || !category?.trim() || !Number.isFinite(numericPrice) || numericPrice < 0) {
+        return res.status(400).json({ message: 'Name, category, and a valid price are required.' });
+    }
+    const id = `${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
+    const product = {
+        id,
+        name: name.trim(),
+        category: category.trim(),
+        price: numericPrice,
+        badge: badge?.trim() || 'New drop',
+        description: description?.trim() || 'Curated game account ready for its next player.',
+        color: color || '#67e8f9',
+        mode: mode === 'out-of-stock' ? 'out-of-stock' : 'restock'
+    };
+    products.push(product);
+    return res.status(201).json({ product });
+});
+
+app.patch('/api/admin/products/:id', authenticateToken, requireAdmin, (req, res) => {
+    const product = products.find((item) => item.id === req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    if (req.body.mode && !['restock', 'out-of-stock'].includes(req.body.mode)) {
+        return res.status(400).json({ message: 'Mode must be restock or out-of-stock.' });
+    }
+    Object.assign(product, {
+        ...(req.body.name !== undefined ? { name: String(req.body.name).trim() } : {}),
+        ...(req.body.category !== undefined ? { category: String(req.body.category).trim() } : {}),
+        ...(req.body.price !== undefined ? { price: Number(req.body.price) } : {}),
+        ...(req.body.badge !== undefined ? { badge: String(req.body.badge).trim() } : {}),
+        ...(req.body.description !== undefined ? { description: String(req.body.description).trim() } : {}),
+        ...(req.body.color !== undefined ? { color: String(req.body.color) } : {}),
+        ...(req.body.mode !== undefined ? { mode: req.body.mode } : {})
+    });
+    return res.json({ product });
+});
+
+app.delete('/api/admin/products/:id', authenticateToken, requireAdmin, (req, res) => {
+    const index = products.findIndex((item) => item.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Product not found' });
+    const [product] = products.splice(index, 1);
+    return res.json({ message: `${product.name} deleted`, product });
+});
+
+app.get('/api/cart', authenticateToken, (req, res) => res.json(serializeCart(req.user.id)));
+
+app.post('/api/cart/items', authenticateToken, (req, res) => {
+    const product = products.find((item) => item.id === req.body.productId);
+    const quantity = Number(req.body.quantity || 1);
+    if (!product || product.mode === 'out-of-stock' || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+        return res.status(400).json({ message: 'Choose a valid product and quantity.' });
+    }
+    const cart = getCart(req.user.id);
+    const existing = cart.find((item) => item.productId === product.id);
+    if (existing) existing.quantity = Math.min(existing.quantity + quantity, 10);
+    else cart.push({ productId: product.id, quantity });
+    return res.status(201).json(serializeCart(req.user.id));
+});
+
+app.delete('/api/cart/items/:productId', authenticateToken, (req, res) => {
+    const cart = getCart(req.user.id);
+    carts.set(req.user.id, cart.filter((item) => item.productId !== req.params.productId));
+    return res.json(serializeCart(req.user.id));
+});
+
+app.post('/api/orders', authenticateToken, (req, res) => {
+    const cart = serializeCart(req.user.id);
+    if (!cart.items.length) return res.status(400).json({ message: 'Your cart is empty.' });
+    const unavailableItem = cart.items.find((item) => item.product.mode === 'out-of-stock');
+    if (unavailableItem) return res.status(409).json({ message: `${unavailableItem.product.name} is out of stock.` });
+    const order = {
+        id: `ORD-${Date.now().toString(36).toUpperCase()}`,
+        createdAt: new Date().toISOString(),
+        status: 'Confirmed',
+        total: cart.total,
+        items: cart.items,
+        shipping: req.body.shipping || 'Studio pickup'
+    };
+    if (!orders.has(req.user.id)) orders.set(req.user.id, []);
+    orders.get(req.user.id).unshift(order);
+    carts.set(req.user.id, []);
+    notifyOrder(order, req.user).catch((error) => console.error('Could not send order notifications:', error));
+    return res.status(201).json({ order });
+});
+
+app.get('/api/orders', authenticateToken, (req, res) => res.json({ orders: orders.get(req.user.id) || [] }));
 
 // REQUEST REGISTRATION OTP
 app.post('/api/register/request-otp', registerLimiter, async (req, res) => {
@@ -214,7 +462,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
         if (user.role === 'admin') {
             const token = jwt.sign(
-                { id: user.id, username: user.username, role: user.role },
+                { id: user.id, username: user.username, email: user.email, role: user.role },
                 JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
             );
@@ -267,7 +515,7 @@ app.post('/api/login/verify-otp', async (req, res) => {
         if (!challenge) return res.status(401).json({ message: 'Invalid or expired verification code' });
 
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
+            { id: user.id, username: user.username, email: user.email, role: user.role },
             JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
         );

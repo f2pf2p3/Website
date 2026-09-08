@@ -1,3 +1,6 @@
 frontend/node_modules/
 backend/node_modules/
 backend/.env
+Brevo OTP.url
+Neon Database.url
+Render Webserver.url

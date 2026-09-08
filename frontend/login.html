@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Login</title>
+    <title>Sign in | GameVault</title>
 
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -16,13 +16,15 @@
 
         <div class="login-box">
 
+            <p class="login-kicker">MEMBER ACCESS</p>
+
             <h1>Welcome Back</h1>
 
             <p class="subtitle">
                 Login to your account
             </p>
 
-            <form id="loginForm">
+            <form id="loginForm" novalidate>
 
                 <div class="form-group">
 
@@ -42,6 +44,7 @@
                 <div class="form-group" id="otpGroup" hidden>
                     <label for="otp">Email verification code</label>
                     <input type="text" id="otp" inputmode="numeric" pattern="\d{6}" maxlength="6">
+                    <p class="otp-help">We sent a six-digit code to your email.</p>
                 </div>
 
 
@@ -66,7 +69,7 @@
                 </button>
 
 
-                <div class="message" id="message"></div>
+                <div class="message" id="message" role="status" aria-live="polite"></div>
 
             </form>
 

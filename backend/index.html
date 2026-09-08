@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Backend Dashboard</title>
+    <title>GameVault Admin</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 
@@ -14,7 +14,7 @@
 
         <!-- Sidebar -->
         <aside class="sidebar">
-            <h2>Admin Panel</h2>
+            <h2>GameVault Admin</h2>
 
             <nav>
                 <a href="#" class="active">Dashboard</a>
@@ -59,6 +59,31 @@
                     <strong class="connected">Connected</strong>
                 </div>
 
+                <div class="card">
+                    <span>Store listings</span>
+                    <strong id="totalProducts">-</strong>
+                </div>
+
+            </section>
+
+            <section class="panel product-panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Game account listings</h2>
+                        <p>Restock, pause, add, or remove items from the storefront.</p>
+                    </div>
+                    <button id="refreshProductsBtn" type="button">Refresh</button>
+                </div>
+                <form id="productForm" class="product-form">
+                    <input name="name" placeholder="Game / listing name" required>
+                    <input name="category" placeholder="Category" required>
+                    <input name="price" type="number" min="0" step="0.01" placeholder="Price" required>
+                    <input name="badge" placeholder="Badge, e.g. Level 80">
+                    <input name="description" placeholder="Short description">
+                    <select name="mode"><option value="restock">Restock</option><option value="out-of-stock">Out of stock</option></select>
+                    <button type="submit">Add listing</button>
+                </form>
+                <div class="admin-product-grid" id="productTable"></div>
             </section>
 
             <!-- Recent Users -->

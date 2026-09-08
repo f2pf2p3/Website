@@ -1,167 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Dashboard</title>
-
+    <title>Account | GameVault</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-
-<body>
-
-    <!-- Navigation -->
-    <header>
-        <nav class="navbar">
-
-            <!-- Logo -->
-            <a href="index.html" class="logo">
-                MyWebsite
-            </a>
-
-
-            <!-- Navigation Links -->
-            <div class="nav-links">
-
-                <a href="index.html">
-                    Home
-                </a>
-
-                <a href="dashboard.html">
-                    Dashboard
-                </a>
-
-            </div>
-
-
-            <!-- User / Logout -->
-            <div class="auth-buttons">
-
-                <!-- Logged-in username -->
-                <a href="dashboard.html"
-                   class="login-btn"
-                   id="displayName">
-                    User
-                </a>
-
-                <!-- Logout -->
-                <button id="logoutBtn" class="register-btn">
-                    Logout
-                </button>
-
-            </div>
-
-        </nav>
+<body class="account-body">
+    <header class="store-header">
+        <a href="index.html" class="store-logo"><span>Game</span>Vault</a>
+        <nav class="store-nav" aria-label="Account navigation"><a href="index.html">Shop</a><a href="dashboard.html">Account</a></nav>
+        <button id="logoutBtn" class="text-action" type="button">Sign out</button>
     </header>
-
-
-    <!-- Dashboard -->
-    <main class="dashboard-page">
-
-        <div class="dashboard-container">
-
-            <h1>
-                Dashboard
-            </h1>
-
-            <p class="dashboard-welcome">
-                Welcome back,
-                <strong id="username">
-                    User
-                </strong>!
-            </p>
-
-
-            <!-- Account Information -->
-            <section class="dashboard-card">
-
-                <h2>
-                    Account Information
-                </h2>
-
-                <div class="user-info">
-
-                    <div>
-                        <span class="info-label">
-                            Username
-                        </span>
-
-                        <span id="userUsername">
-                            -
-                        </span>
-                    </div>
-
-
-                    <div>
-                        <span class="info-label">
-                            Email
-                        </span>
-
-                        <span id="userEmail">
-                            -
-                        </span>
-                    </div>
-
-
-                    <div>
-                        <span class="info-label">
-                            User ID
-                        </span>
-
-                        <span id="userId">
-                            -
-                        </span>
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- Quick Actions -->
-            <section class="dashboard-card">
-
-                <h2>
-                    Quick Actions
-                </h2>
-
-                <div class="dashboard-actions">
-
-                    <a href="index.html"
-                       class="primary-btn">
-                        Home
-                    </a>
-
-                    <button id="logoutBtn2"
-                            class="secondary-btn">
-                        Logout
-                    </button>
-
-                </div>
-
-            </section>
-
+    <main class="account-page">
+        <div class="account-intro"><p class="eyebrow">Your GameVault</p><h1>Hello, <span id="username">there</span>.</h1><p>Keep track of your account access and recent game orders in one place.</p></div>
+        <div class="account-layout">
+            <section class="account-panel profile-panel"><div class="panel-heading"><p class="eyebrow">Profile</p><h2>Account details</h2></div><dl class="profile-list"><div><dt>Name</dt><dd id="userUsername">-</dd></div><div><dt>Email</dt><dd id="userEmail">-</dd></div><div><dt>Member ID</dt><dd id="userId">-</dd></div></dl><a href="index.html" class="accent-link">Continue shopping <span>↘</span></a></section>
+            <section class="account-panel orders-panel"><div class="panel-heading"><p class="eyebrow">History</p><h2>Recent orders</h2></div><div id="ordersList" class="orders-list"><p class="loading-state">Loading your orders...</p></div></section>
         </div>
-
     </main>
-
-
-    <!-- Footer -->
-    <footer>
-
-        <p>
-            &copy; 2026 MyWebsite.
-            All rights reserved.
-        </p>
-
-    </footer>
-
-
-    <!-- Dashboard JavaScript -->
+    <footer class="store-footer"><span>GameVault © 2026</span><span>Play more. Queue less.</span></footer>
     <script src="js/dashboard.js"></script>
-
 </body>
-
 </html>

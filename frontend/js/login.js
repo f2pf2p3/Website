@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         submitButton.disabled = true;
+        message.textContent = otpRequested ? 'Checking your verification code...' : 'Checking your sign-in details...';
+        message.className = 'message show pending';
         try {
             const endpoint = otpRequested ? '/api/login/verify-otp' : '/api/login';
             const body = otpRequested
@@ -50,10 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!otpRequested) {
                 otpRequested = true;
+                form.classList.add('otp-requested');
                 otpGroup.hidden = false;
                 passwordInput.hidden = true;
                 submitButton.textContent = 'Verify code';
-                message.textContent = data.message;
+                message.textContent = data.message || 'Verification code sent. Check your email.';
                 message.className = 'message show success';
                 submitButton.disabled = false;
                 otpInput.focus();
