@@ -113,7 +113,8 @@ app.use(express.json({
         req.rawBody = buffer;
     }
 }));
-app.use(express.static(__dirname));
+app.get('/server.js', (req, res) => res.sendStatus(404));
+app.use(express.static(__dirname, { dotfiles: 'deny', index: false }));
 
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'login.html')));
@@ -159,6 +160,13 @@ async function sendOtp(email, otp, purpose) {
         accepted: result.accepted,
         rejected: result.rejected
     });
+}
+
+function isSmtpError(error) {
+    return error.message === 'SMTP is not configured'
+        || Boolean(error.code && ['EAUTH', 'ECONNECTION', 'ECONNREFUSED', 'ETIMEDOUT', 'ESOCKET'].includes(error.code))
+        || Boolean(error.responseCode)
+        || Boolean(error.command);
 }
 
 async function notifyLine(message) {
@@ -478,8 +486,9 @@ app.post('/api/register/request-otp', registerLimiter, async (req, res) => {
         return res.status(202).json({ message: 'Verification code sent to your email' });
     } catch (error) {
         if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
-        if (error.message === 'SMTP is not configured' || ['EAUTH', 'ECONNECTION', 'ECONNREFUSED', 'ETIMEDOUT'].includes(error.code)) {
+        if (isSmtpError(error)) {
             otpChallenges.delete(`register:${emailTrimmed.toLowerCase()}`);
+            console.error('Registration SMTP error:', { code: error.code, responseCode: error.responseCode, command: error.command });
             return res.status(503).json({
                 message: 'Email service rejected the connection. Authorize this server IP in Brevo and create a new SMTP key.'
             });
@@ -564,8 +573,9 @@ app.post('/api/login', loginLimiter, async (req, res) => {
         return res.status(202).json({ status: 'otp_required', message: 'Verification code sent to your email' });
     } catch (error) {
         if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
-        if (error.message === 'SMTP is not configured' || ['EAUTH', 'ECONNECTION', 'ECONNREFUSED', 'ETIMEDOUT'].includes(error.code)) {
+        if (isSmtpError(error)) {
             if (loginUserId) otpChallenges.delete(`login:${loginUserId}`);
+            console.error('Login SMTP error:', { code: error.code, responseCode: error.responseCode, command: error.command });
             return res.status(503).json({
                 message: 'Email service rejected the connection. Authorize this server IP in Brevo and create a new SMTP key.'
             });
