@@ -503,20 +503,53 @@ app.post('/api/register/request-otp', registerLimiter, async (req, res) => {
 
 app.post('/api/register/verify-otp', async (req, res) => {
     const { email, otp } = req.body;
+
+    // Validate email and OTP format
     if (!email || !/^\d{6}$/.test(otp || '')) {
-        return res.status(400).json({ message: 'Enter the six-digit verification code' });
+        return res.status(400).json({
+            message: 'Enter the six-digit verification code'
+        });
     }
+
     try {
-        const challenge = consumeChallenge(`register:${email.trim().toLowerCase()}`, otp);
-        if (!challenge) return res.status(400).json({ message: 'Invalid or expired verification code' });
-        const result = await db.query(
-            `INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email, role`,
-            [challenge.username, challenge.email, challenge.passwordHash]
+        // Find and consume the OTP challenge
+        const challenge = consumeChallenge(
+            `register:${email.trim().toLowerCase()}`,
+            otp
         );
-        return res.status(201).json({ status: 'success', user: result.rows[0] });
+
+        // OTP does not exist or has expired
+        if (!challenge) {
+            return res.status(400).json({
+                message: 'Invalid or expired verification code'
+            });
+        }
+
+        // Create the user after successful OTP verification
+        const result = await db.query(
+            `
+            INSERT INTO users (username, email, password)
+            VALUES ($1, $2, $3)
+            RETURNING id, username, email, role
+            `,
+            [
+                challenge.username,
+                challenge.email,
+                challenge.passwordHash
+            ]
+        );
+
+        return res.status(201).json({
+            status: 'success',
+            user: result.rows[0]
+        });
+
     } catch (error) {
         console.error('Register verification error:', error);
-        return res.status(500).json({ message: 'Could not complete registration' });
+
+        return res.status(500).json({
+            message: 'Could not complete registration'
+        });
     }
 });
 

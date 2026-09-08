@@ -65,11 +65,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) {
                 throw new Error(
                     response.status === 503
-                        ? 'Email verification is temporarily unavailable. Ask the administrator to authorize the server IP in Brevo.'
+                        ? 'Email verification is temporarily unavailable. Please try again later.'
                         : data.message || 'Request failed'
                 );
             }
-
             if (!otpRequested) {
                 otpRequested = true;
                 form.classList.add('otp-requested');
