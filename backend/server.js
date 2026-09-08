@@ -125,6 +125,7 @@ const db = new Pool({
 });
 
 const mailer = nodemailer.createTransport({
+    
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === 'true',
@@ -135,6 +136,19 @@ const mailer = nodemailer.createTransport({
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000
+});
+
+// Test SMTP connection when the server starts
+mailer.verify((error, success) => {
+    if (error) {
+        console.error('SMTP VERIFY ERROR:', {
+            code: error.code,
+            command: error.command,
+            message: error.message
+        });
+    } else {
+        console.log('SMTP connection successful');
+    }
 });
 
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -149,19 +163,34 @@ function hashOtp(otp) {
     return crypto.createHash('sha256').update(otp).digest('hex');
 }
 
-async function sendOtp(email, otp, purpose) {
-    if (!mailer || !process.env.SMTP_FROM) throw new Error('SMTP is not configured');
-    const result = await mailer.sendMail({
-        from: process.env.SMTP_FROM,
-        to: email,
-        subject: `MyWebsite ${purpose} verification code`,
-        text: `Your verification code is ${otp}. It expires in 10 minutes.`
-    });
-    console.log('OTP email accepted by SMTP provider:', {
-        messageId: result.messageId,
-        accepted: result.accepted,
-        rejected: result.rejected
-    });
+async function sendOtp(email, otp, type) {
+    try {
+        // Send OTP email through Brevo SMTP
+        const info = await mailer.sendMail({
+            from: process.env.SMTP_FROM,
+            to: email,
+            subject: type === 'registration'
+                ? 'GameVault Registration OTP'
+                : 'GameVault OTP',
+            text: `Your verification code is: ${otp}`
+        });
+
+        console.log('OTP email sent:', info.messageId);
+
+        return info;
+    } catch (error) {
+        // Log the real SMTP error for Render Logs
+        console.error('SMTP SEND ERROR:', {
+            name: error.name,
+            code: error.code,
+            command: error.command,
+            responseCode: error.responseCode,
+            response: error.response,
+            message: error.message
+        });
+
+        throw error;
+    }
 }
 
 function isSmtpError(error) {
@@ -457,49 +486,97 @@ app.patch('/api/admin/orders/:id/status', authenticateToken, requireAdmin, (req,
 // REQUEST REGISTRATION OTP
 app.post('/api/register/request-otp', registerLimiter, async (req, res) => {
     const { username, email, password } = req.body;
+
     const usernameTrimmed = username?.trim();
     const emailTrimmed = email?.trim();
     const passwordTrimmed = password?.trim();
 
+    // Validate required fields
     if (!usernameTrimmed || !emailTrimmed || !passwordTrimmed) {
-        return res.status(400).json({ message: 'Please fill in all required information' });
+        return res.status(400).json({
+            message: 'Please fill in all required information'
+        });
     }
+
+    // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
-        return res.status(400).json({ message: 'Please enter a valid email address' });
+        return res.status(400).json({
+            message: 'Please enter a valid email address'
+        });
     }
 
     try {
+        // Check whether username or email already exists
         const existing = await db.query(
             'SELECT 1 FROM users WHERE username = $1 OR email = $2',
             [usernameTrimmed, emailTrimmed]
         );
+
         if (existing.rowCount > 0) {
-            return res.status(409).json({ message: 'Username or email already registered' });
+            return res.status(409).json({
+                message: 'Username or email already registered'
+            });
         }
 
         const challengeKey = `register:${emailTrimmed.toLowerCase()}`;
+
+        // Hash password before storing it in the temporary OTP challenge
+        const passwordHash = await bcrypt.hash(passwordTrimmed, 12);
+
+        // Generate OTP and store registration information temporarily
         const otp = createChallenge(challengeKey, {
             type: 'register',
             username: usernameTrimmed,
             email: emailTrimmed,
-            passwordHash: await bcrypt.hash(passwordTrimmed, 12)
+            passwordHash
         });
+
+        console.log('Attempting to send registration OTP...');
+
+        // Send OTP through SMTP
         await sendOtp(emailTrimmed, otp, 'registration');
-        return res.status(202).json({ message: 'Verification code sent to your email' });
+
+        console.log('Registration OTP sent successfully');
+
+        return res.status(202).json({
+            message: 'Verification code sent to your email'
+        });
+
     } catch (error) {
-        if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
+
+        // Print the complete error so Render Logs show the real cause
+        console.error('Registration error:', {
+            name: error.name,
+            code: error.code,
+            responseCode: error.responseCode,
+            command: error.command,
+            message: error.message
+        });
+
+        // Remove OTP challenge if email sending failed
+        if (emailTrimmed) {
+            otpChallenges.delete(
+                `register:${emailTrimmed.toLowerCase()}`
+            );
+        }
+
+        // SMTP connection/authentication error
         if (isSmtpError(error)) {
-            otpChallenges.delete(`register:${emailTrimmed.toLowerCase()}`);
-            console.error('Registration SMTP error:', { code: error.code, responseCode: error.responseCode, command: error.command });
             return res.status(503).json({
-                message: 'Email service rejected the connection. Authorize this server IP in Brevo and create a new SMTP key.'
+                message: 'Unable to send verification email'
             });
         }
+
+        // PostgreSQL duplicate error
         if (error.code === '23505') {
-            return res.status(409).json({ message: 'Username or email already registered' });
+            return res.status(409).json({
+                message: 'Username or email already registered'
+            });
         }
-        console.error('Register Error:', error);
-        return res.status(500).json({ message: 'Something went wrong' });
+
+        return res.status(500).json({
+            message: 'Something went wrong'
+        });
     }
 });
 
