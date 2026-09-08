@@ -1,98 +1,245 @@
-# User Registration Flow
+# GameVault Deployment Guide
 
-1. The frontend validates the username, email, password length, uppercase requirement, and password confirmation.
-2. It sends the registration details to `POST /api/register/request-otp`.
-3. The backend hashes the password, creates a short-lived OTP challenge, and emails the code through the configured SMTP provider.
-4. While the user is waiting for the OTP, the frontend hides both password fields and shows only the verification-code field.
-5. The frontend sends the code to `POST /api/register/verify-otp`.
-6. The backend verifies the code and inserts the new user into PostgreSQL. The user is then redirected to the login page.
+GameVault is a dark game-account storefront with:
 
-OTP codes expire after 10 minutes and are limited to five verification attempts.
+- Frontend catalog, product galleries, long descriptions, bag, checkout, login, registration, and account history.
+- Node.js/Express backend with PostgreSQL authentication, OTP email verification, catalog, cart, orders, admin APIs, and LINE notifications.
+- Admin console for users, listings, stock mode, orders, API status, and notification settings.
 
-## Users Table
-
-| Column | Type | Constraints |
-| --- | --- | --- |
-| id | SERIAL | PRIMARY KEY |
-| username | VARCHAR(500) | NOT NULL, UNIQUE |
-| password | VARCHAR(255) | NOT NULL |
-| email | VARCHAR(100) | NOT NULL |
-| role | VARCHAR(...) | Used for access control |
-| created_at | TIMESTAMP | Set by the database |
-
-## Q&A Section
-
-Question: Why do I have to separate the **Frontend server** and **Backend server**?
-
-Answer: The frontend serves HTML, CSS, and browser JavaScript. The backend handles API requests, authentication, OTP delivery, password hashing, and database access. Keeping those responsibilities separate is easier to develop and deploy securely.
-
-Question: What does the **Frontend server** do?
-
-Answer: It serves the pages and static assets in the `frontend` folder. The default local port is `3000`.
-
-Question: What does the **Backend server** do?
-
-Answer: It serves the authentication API, sends email OTPs, hashes passwords with bcrypt, signs login tokens, and reads and writes PostgreSQL data.
-
-Question: Why are the **Backend server** and **Frontend server** on ports `5000` and `3000`?
-
-Answer: They are separate local processes, so each needs its own port. The frontend calls the backend at `http://localhost:5000` during local development.
-
-Question: What is in **.env**?
-
-Answer: It contains server-only configuration such as `DATABASE_URL`, `JWT_SECRET`, and SMTP credentials. Do not commit this file or expose its values in frontend code.
-
-Question: How do I run the **Backend server** locally?
-
-Answer: Configure PostgreSQL and the required `.env` values, run `npm install` in `backend`, then run `npm start`.
-
-Question: Do I need to run the **Frontend server** locally?
-
-Answer: Yes, run `npm install` and `npm start` in `frontend`, then open `http://localhost:3000`. The frontend server is needed to serve the browser pages consistently.
-
-## Store API
-
-The storefront uses the backend catalog and authenticated shopping APIs:
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/products` | Return the seeded product catalog and categories |
-| `GET` | `/api/products/:id` | Return one product |
-| `GET` | `/api/cart` | Return the signed-in user's bag |
-| `POST` | `/api/cart/items` | Add a product to the bag |
-| `DELETE` | `/api/cart/items/:productId` | Remove a product from the bag |
-| `POST` | `/api/orders` | Confirm the current bag as an order |
-| `GET` | `/api/orders` | Return the signed-in user's order history |
-| `GET` | `/api/admin/orders` | List all orders for an admin |
-| `PATCH` | `/api/admin/orders/:id/status` | Update an order status |
-| `GET` | `/api/admin/settings` | Return non-secret admin configuration status |
-| `PATCH` | `/api/admin/settings` | Update runtime notification settings |
-
-Catalog data and cart/order state are currently held in memory for the demo. A production deployment should move products, carts, and orders into PostgreSQL and add payment, inventory, shipping, and refund workflows.
-
-Listings support `images` (up to eight URLs) and `longDescription`. The admin dashboard's Listings panel accepts one image URL per line and the Orders panel supports `Pending`, `Paid`, `Confirmed`, `Delivered`, `Cancelled`, and `Refunded`.
-
-## Purchase Notifications
-
-When an authenticated order is confirmed, the backend sends an order summary to `shogunraiden2006@protonmail.com` when SMTP is configured. Configure these backend-only variables in `.env`:
+## Project Layout
 
 ```text
-SMTP_HOST=smtp.example.com
+frontend/  Public storefront and account pages
+backend/   Express API, admin console, authentication, and notifications
+```
+
+The current catalog, carts, and orders are stored in memory. PostgreSQL currently stores users. For a production store, move catalog, inventory, carts, and orders into PostgreSQL before using multiple server instances or relying on data after a restart.
+
+## Requirements
+
+- Node.js 20 or newer
+- A PostgreSQL database, such as Neon
+- An SMTP provider, such as Brevo, for OTP and order email
+- A LINE Messaging API channel for LINE notifications
+
+## Local Development
+
+Open two terminals from the project root.
+
+Backend:
+
+```powershell
+cd backend
+npm install
+npm start
+```
+
+Frontend:
+
+```powershell
+cd frontend
+npm install
+npm start
+```
+
+Open the storefront at `http://localhost:3000/index.html`.
+
+The backend runs at `http://localhost:5000`. Confirm it is alive:
+
+```powershell
+Invoke-RestMethod http://localhost:5000/api/health
+```
+
+Expected response:
+
+```json
+{"status":"ok","message":"Backend is running"}
+```
+
+## Backend Environment
+
+Create `backend/.env`. Never commit this file or paste its secrets into source code.
+
+```env
+PORT=5000
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+JWT_SECRET=generate-a-long-random-secret
+JWT_EXPIRES_IN=7d
+
+SMTP_HOST=smtp-relay.brevo.com
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your-smtp-user
 SMTP_PASSWORD=your-smtp-password
-SMTP_FROM=orders@example.com
-ORDER_NOTIFICATION_EMAIL=shogunraiden2006@protonmail.com
+SMTP_FROM=GameVault <orders@example.com>
+ORDER_NOTIFICATION_EMAIL=your-order-notification-email@example.com
+
+LINE_CHANNEL_ACCESS_TOKEN=your-line-channel-access-token
+LINE_CHANNEL_SECRET=your-line-channel-secret
+LINE_TO_USER_ID=Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-LINE Business preparation is included through the official LINE Messaging API push endpoint. Add a LINE Developers channel access token and the recipient's LINE user ID to enable it:
+`LINE_CHANNEL_ACCESS_TOKEN` is issued from LINE Developers under the Messaging API tab. It is different from the Channel ID and Channel Secret. `LINE_TO_USER_ID` is the recipient's LINE user ID, not the bot's ID.
+
+## PostgreSQL Setup
+
+The backend expects a `users` table. Run an equivalent migration in the selected PostgreSQL database:
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+id SERIAL PRIMARY KEY,
+username VARCHAR(500) NOT NULL UNIQUE,
+email VARCHAR(255) NOT NULL UNIQUE,
+password VARCHAR(255) NOT NULL,
+role VARCHAR(40) NOT NULL DEFAULT 'user',
+created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+After creating an account, promote the administrator directly in PostgreSQL:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'your-admin-email@example.com';
+```
+
+## Render Deployment
+
+### 1. Deploy the backend
+
+Create a Render **Web Service** connected to the repository:
 
 ```text
-LINE_CHANNEL_ACCESS_TOKEN=your-channel-access-token
-LINE_TO_USER_ID=your-line-user-id
+Root Directory: backend
+Build Command: npm install
+Start Command: npm start
 ```
 
-The LINE channel must be configured in LINE Developers, and the recipient must have added the official account or otherwise be eligible to receive a push message. No LINE secrets are exposed to the frontend.
+Add every backend environment variable from the previous section in Render. Do not commit `.env` to the repository.
 
-The admin dashboard is available at the backend URL `/index.html` after an admin login. It can add listings, delete listings, and switch each listing between `restock` and `out-of-stock`. Public visitors only see listings marked `restock`.
+After deployment, test:
+
+```text
+https://YOUR-BACKEND.onrender.com/api/health
+https://YOUR-BACKEND.onrender.com/api/products
+```
+
+### 2. Deploy the frontend
+
+Create a second Render **Static Site**:
+
+```text
+Root Directory: frontend
+Build Command: leave empty
+Publish Directory: .
+```
+
+The frontend automatically calls `http://localhost:5000` on localhost and the configured deployed backend URL on non-local hosts. Update `API_URL` in the frontend JavaScript files if your Render backend URL differs from the current one.
+
+A second Render Web Service also works:
+
+```text
+Root Directory: frontend
+Build Command: npm install
+Start Command: npm start
+```
+
+### 3. Configure the LINE webhook
+
+After the backend is deployed, enter this URL in LINE Developers:
+
+```text
+https://YOUR-BACKEND.onrender.com/api/line/webhook
+```
+
+Enable **Use webhook** and press **Verify**. The backend validates `x-line-signature` using `LINE_CHANNEL_SECRET` and returns `200 OK` for valid LINE requests.
+
+### 4. Configure CORS and domain access
+
+The current backend allows all origins for development. Before production, restrict `cors()` to the deployed frontend origin. The frontend and backend must both use HTTPS in production.
+
+## Admin Console
+
+After signing in with an account whose PostgreSQL role is `admin`, open:
+
+```text
+https://YOUR-BACKEND.onrender.com/index.html
+```
+
+The admin console provides:
+
+- **Users:** list and delete users, with self-delete protection.
+- **Listings:** create/delete accounts, set `restock` or `out-of-stock`, add long descriptions, and add one image URL per line.
+- **Orders:** list orders and set `Pending`, `Paid`, `Confirmed`, `Delivered`, `Cancelled`, or `Refunded`.
+- **API:** inspect non-secret service status and endpoint capabilities.
+- **Settings:** change the order email and enable or disable LINE notifications for the current server session.
+
+## API Reference
+
+Public endpoints:
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Health check |
+| `GET` | `/api/products` | Public in-stock catalog |
+| `GET` | `/api/products/:id` | Product detail |
+| `POST` | `/api/login` | Start password/OTP login |
+| `POST` | `/api/register/request-otp` | Start registration OTP |
+| `POST` | `/api/register/verify-otp` | Complete registration |
+| `POST` | `/api/login/verify-otp` | Complete login |
+| `POST` | `/api/line/webhook` | Receive signed LINE events |
+
+Authenticated customer endpoints require `Authorization: Bearer <JWT>`:
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/me` | Current account |
+| `GET` | `/api/cart` | Current bag |
+| `POST` | `/api/cart/items` | Add an in-stock listing |
+| `DELETE` | `/api/cart/items/:productId` | Remove a listing |
+| `POST` | `/api/orders` | Confirm the bag as an order |
+| `GET` | `/api/orders` | Customer order history |
+
+Admin endpoints require the same JWT with `role=admin`:
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/users` | List users |
+| `DELETE` | `/api/users/:id` | Delete another user |
+| `GET` | `/api/admin/products?includeUnavailable=true` | List all listings |
+| `POST` | `/api/admin/products` | Create a listing |
+| `PATCH` | `/api/admin/products/:id` | Edit listing data or stock mode |
+| `DELETE` | `/api/admin/products/:id` | Delete a listing |
+| `GET` | `/api/admin/orders` | List all orders |
+| `PATCH` | `/api/admin/orders/:id/status` | Change order status |
+| `GET` | `/api/admin/settings` | Read service configuration status |
+| `PATCH` | `/api/admin/settings` | Change runtime notification settings |
+
+## Troubleshooting 401
+
+`401 Unauthorized` is expected when opening protected endpoints directly without a token:
+
+- `/api/me`
+- `/api/cart`
+- `/api/orders`
+- `/api/admin/*`
+
+Open the frontend login page first. After successful login, the frontend stores the JWT in `localStorage` and sends it as `Authorization: Bearer <token>`.
+
+Common causes:
+
+1. The user has not signed in.
+2. The JWT expired or `JWT_SECRET` changed between deployments.
+3. An admin page was opened directly without the admin login redirect.
+4. The frontend still points to an old backend URL.
+5. Login credentials are invalid. In that case `/api/login` returns a login error rather than creating a session.
+
+Check the deployed backend health endpoint and browser Network panel to identify the exact URL returning `401`.
+
+## Security Checklist
+
+- Rotate any secret that was shared publicly or committed accidentally.
+- Use a strong persistent `JWT_SECRET` in Render.
+- Keep SMTP, database, LINE, and JWT secrets backend-only.
+- Restrict CORS to the frontend domain before production.
+- Move products, carts, orders, and OTP challenges from memory into PostgreSQL or another shared store.
+- Add a real payment provider and inventory reservation before accepting real payments.

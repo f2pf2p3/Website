@@ -5,6 +5,16 @@ const API_URL = (
     ? 'http://localhost:5000'
     : 'https://website-backend-70pc.onrender.com';
 
+async function fetchWithTimeout(url, options, timeoutMs = 20000) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        window.clearTimeout(timeout);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('registerForm');
     const username = document.getElementById('username');
@@ -46,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
 
-            const response = await fetch(`${API_URL}${endpoint}`, {
+            const response = await fetchWithTimeout(`${API_URL}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
@@ -78,7 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
             message.className = 'message show success';
             window.setTimeout(() => { window.location.href = 'login.html'; }, 500);
         } catch (error) {
-            message.textContent = error.message;
+            message.textContent = error.name === 'AbortError'
+                ? 'The server took too long to respond. Check SMTP configuration or try again.'
+                : error.message;
             message.className = 'message show error';
             button.disabled = false;
         }
