@@ -16,7 +16,10 @@ app.get('/', (req, res) => {
 // Start frontend server.
 app.listen(PORT, () => {
     console.log('========================================');
+
     console.log('FRONTEND SERVER STARTED');
+    
     console.log(`PORT: ${PORT}`);
+
     console.log('========================================');
 });

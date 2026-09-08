@@ -6,9 +6,13 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "bcrypt": "^5.x.x",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "pg": "^8.11.5"
+    "express-rate-limit": "^7.x.x",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.11.5",
+    "nodemailer": "^6.9.16"
   }
 }

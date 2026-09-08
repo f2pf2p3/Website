@@ -8,6 +8,19 @@
     <title>MyWebsite</title>
 
     <link rel="stylesheet" href="css/style.css">
+    <script src="js/index.js" defer></script>
+    <script>
+        (function () {
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                if (user) {
+                    document.documentElement.classList.add('user-logged-in');
+                }
+            } catch (e) {
+                localStorage.removeItem('user');
+            }
+        })();
+    </script>
 </head>
 
 <body>
@@ -55,7 +68,7 @@
                     built with modern web technologies.
                 </p>
 
-                <div class="hero-buttons">
+                <div class="hero-buttons" id="heroButtons">
 
                     <a href="login.html" class="primary-btn">
                         Login
@@ -153,8 +166,6 @@
         <p>&copy; 2026 MyWebsite. All rights reserved.</p>
     </footer>
 
-
-    <script src="js/index.js"></script>
-
 </body>
+
 </html>

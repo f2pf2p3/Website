@@ -58,6 +58,29 @@ body {
    Authentication Buttons
 ========================= */
 
+.message {
+    display: none;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+}
+
+.message.show {
+    display: block;
+}
+
+.message.error {
+    background-color: #fdecea;
+    color: #b91c1c;
+    border: 1px solid #f5c6cb;
+}
+
+.message.success {
+    background-color: #e6f4ea;
+    color: #1a7f37;
+    border: 1px solid #c3e6cb;
+}
+
 .auth-buttons {
     display: flex;
     gap: 10px;
@@ -93,6 +116,13 @@ body {
 /* =========================
    Hero
 ========================= */
+
+.user-logged-in .hero-buttons {
+    display: none;
+}
+.auth-buttons {
+    visibility: hidden;
+}
 
 .hero {
     min-height: calc(100vh - 70px);
@@ -261,6 +291,220 @@ footer {
 
     .auth-buttons a {
         padding: 8px 12px;
+    }
+
+    /* Playful cartoon theme */
+    :root {
+        --ink: #2d1b4e;
+        --purple: #6c4ab6;
+        --pink: #ff6b9a;
+        --yellow: #ffd166;
+        --mint: #b8f2e6;
+        --sky: #8bdcff;
+    }
+
+    body {
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        color: var(--ink);
+        background: #fff7df;
+    }
+
+    .navbar {
+        height: 78px;
+        background: #fff;
+        border-bottom: 4px solid var(--ink);
+    }
+
+    .logo {
+        color: var(--purple);
+        font-size: 26px;
+        letter-spacing: .04em;
+    }
+
+    .nav-links a {
+        color: var(--ink);
+        font-weight: 700;
+    }
+
+    .nav-links a:hover {
+        color: var(--pink);
+    }
+
+    .auth-buttons a,
+    .hero-buttons a {
+        border: 3px solid var(--ink);
+        border-radius: 999px;
+        box-shadow: 0 4px 0 var(--ink);
+    }
+
+    .auth-buttons a:active,
+    .hero-buttons a:active {
+        transform: translateY(3px);
+        box-shadow: 0 1px 0 var(--ink);
+    }
+
+    .hero {
+        min-height: calc(100vh - 78px);
+        background-color: var(--sky);
+        background-image: radial-gradient(#fff 3px, transparent 3px);
+        background-size: 30px 30px;
+    }
+
+    .hero-content h1 {
+        color: var(--purple);
+        text-shadow: 4px 4px 0 #fff;
+    }
+
+    .primary-btn,
+    .register-btn {
+        background: var(--pink);
+        color: #fff;
+    }
+
+    .secondary-btn,
+    .login-btn {
+        background: var(--yellow);
+        color: var(--ink);
+    }
+
+    .features {
+        background: #fff7df;
+    }
+
+    .feature-card,
+    .login-box,
+    .dashboard-card {
+        border: 3px solid var(--ink);
+        border-radius: 24px;
+        box-shadow: 8px 8px 0 var(--ink);
+    }
+
+    .feature-card:nth-child(3n + 1) {
+        background: var(--mint);
+    }
+
+    .feature-card:nth-child(3n + 2) {
+        background: var(--yellow);
+    }
+
+    .feature-card:nth-child(3n) {
+        background: #ffb4d0;
+    }
+
+    .login-page {
+        background-color: var(--sky);
+        background-image: radial-gradient(#fff 3px, transparent 3px);
+        background-size: 30px 30px;
+    }
+
+    .login-box {
+        background: #fff;
+    }
+
+    .login-box h1 {
+        color: var(--purple);
+    }
+
+    .form-group input {
+        border: 3px solid var(--ink);
+        border-radius: 14px;
+    }
+
+    #loginBtn {
+        border: 3px solid var(--ink);
+        border-radius: 999px;
+        background: #55d66f;
+        box-shadow: 0 5px 0 var(--ink);
+    }
+
+    /* Cartoon landing and login theme */
+    body {
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        background: #fff4cf;
+    }
+
+    .navbar {
+        background: #fff;
+        border-bottom: 4px solid #24134f;
+    }
+
+    .logo,
+    .nav-links a:hover {
+        color: #ff6b6b;
+    }
+
+    .auth-buttons a,
+    .hero-buttons a {
+        border: 3px solid #24134f;
+        border-radius: 999px;
+        box-shadow: 0 4px 0 #24134f;
+    }
+
+    .hero {
+        background: #74d6ff;
+        background-image: radial-gradient(#fff 3px, transparent 3px);
+        background-size: 28px 28px;
+    }
+
+    .hero-content h1 {
+        color: #51358f;
+        text-shadow: 3px 3px 0 #fff;
+    }
+
+    .primary-btn,
+    .register-btn {
+        background: #ff6b6b;
+    }
+
+    .secondary-btn,
+    .login-btn {
+        background: #ffcc4d;
+        color: #24134f;
+    }
+
+    .features {
+        background: #fff4cf;
+    }
+
+    .feature-card,
+    .login-box {
+        border: 3px solid #24134f;
+        border-radius: 24px;
+        box-shadow: 8px 8px 0 #24134f;
+    }
+
+    .feature-card:nth-child(3n + 1) {
+        background: #b8f2e6;
+    }
+
+    .feature-card:nth-child(3n + 2) {
+        background: #ffcc4d;
+    }
+
+    .feature-card:nth-child(3n) {
+        background: #ff9fcb;
+    }
+
+    .login-page {
+        background: #74d6ff;
+        background-image: radial-gradient(#fff 3px, transparent 3px);
+        background-size: 28px 28px;
+    }
+
+    .login-box h1 {
+        color: #51358f;
+    }
+
+    .form-group input {
+        border: 3px solid #24134f;
+        border-radius: 14px;
+    }
+
+    #loginBtn {
+        border: 3px solid #24134f;
+        border-radius: 999px;
+        background: #53d769;
+        box-shadow: 0 5px 0 #24134f;
     }
 
     .hero-content h1 {
