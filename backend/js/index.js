@@ -6,6 +6,7 @@ const logoutBtn = document.getElementById('logoutBtn');
 const productTable = document.getElementById('productTable');
 const productForm = document.getElementById('productForm');
 const totalProducts = document.getElementById('totalProducts');
+const orderTable = document.getElementById('orderTable');
 
 function getToken() {
     const query = new URLSearchParams(window.location.search);
@@ -95,7 +96,7 @@ async function loadProducts() {
         card.className = 'admin-product-card';
         card.innerHTML = `
             <div class="admin-product-color" style="background:${product.color}"></div>
-            <div class="admin-product-copy"><span>${product.category}</span><h3>${product.name}</h3><p>${product.badge} · $${Number(product.price).toFixed(2)}</p></div>
+            <div class="admin-product-copy"><span>${product.category}</span><h3>${product.name}</h3><p>${product.badge} · $${Number(product.price).toFixed(2)} · ${(product.images || []).length} pictures</p><small>${product.longDescription || product.description}</small></div>
             <select aria-label="Stock mode for ${product.name}"><option value="restock">Restock</option><option value="out-of-stock">Out of stock</option></select>
             <button class="delete-btn" type="button">Delete</button>`;
         const modeSelect = card.querySelector('select');
@@ -104,6 +105,66 @@ async function loadProducts() {
         card.querySelector('.delete-btn').addEventListener('click', () => deleteProduct(product.id, product.name));
         productTable.appendChild(card);
     });
+}
+
+async function loadSettings() {
+    const response = await request('/api/admin/settings');
+    if (!response.ok) throw new Error('Could not load settings');
+    const settings = await response.json();
+    const form = document.getElementById('settingsForm');
+    form.orderNotificationEmail.value = settings.orderNotificationEmail;
+    form.lineNotificationsEnabled.checked = settings.lineNotificationsEnabled;
+    document.getElementById('settingsStatus').textContent = `SMTP: ${settings.smtpConfigured ? 'ready' : 'not configured'} · Database: ${settings.databaseConfigured ? 'configured' : 'missing'} · Webhook: ${settings.lineWebhookPath}`;
+}
+
+async function loadApiStatus() {
+    const response = await request('/api/admin/settings');
+    if (!response.ok) throw new Error('Could not load API status');
+    const settings = await response.json();
+    document.getElementById('apiStatus').innerHTML = [
+        ['Health', 'GET /api/health'],
+        ['Catalog', 'GET /api/products'],
+        ['Users', 'GET /api/users · admin'],
+        ['Orders', 'GET /api/orders · account'],
+        ['LINE webhook', `${settings.lineWebhookPath} · signature verified`],
+        ['Notifications', settings.lineNotificationsEnabled ? 'Email + LINE enabled' : 'Email or LINE needs setup']
+    ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join('');
+}
+
+async function loadOrders() {
+    const response = await request('/api/admin/orders');
+    if (!response.ok) throw new Error('Could not load orders');
+    const data = await response.json();
+    orderTable.replaceChildren();
+    if (!data.orders.length) {
+        orderTable.innerHTML = '<p class="empty-admin-state">No orders have been placed yet.</p>';
+        return;
+    }
+    data.orders.forEach((order) => {
+        const card = document.createElement('article');
+        card.className = 'admin-order-card';
+        card.innerHTML = `<div><span>${order.id}</span><h3>${order.customer?.username || 'Customer'}</h3><p>${order.customer?.email || 'No email'} · ${new Date(order.createdAt).toLocaleString()}</p></div><strong>$${Number(order.total).toFixed(2)}</strong><select aria-label="Status for ${order.id}">${data.statuses.map((status) => `<option value="${status}">${status}</option>`).join('')}</select>`;
+        const statusSelect = card.querySelector('select');
+        statusSelect.value = order.status;
+        statusSelect.addEventListener('change', () => updateOrderStatus(order.id, statusSelect.value));
+        orderTable.appendChild(card);
+    });
+}
+
+async function updateOrderStatus(orderId, status) {
+    const response = await request(`/api/admin/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+    });
+    if (!response.ok) alert((await response.json()).message || 'Could not update order status');
+}
+
+function activatePanel(panelName) {
+    document.querySelectorAll('[data-section]').forEach((section) => {
+        section.classList.toggle('panel-hidden', section.dataset.section !== panelName && panelName !== 'dashboard');
+    });
+    document.querySelectorAll('[data-panel]').forEach((link) => link.classList.toggle('active', link.dataset.panel === panelName));
 }
 
 async function updateProduct(productId, body) {
@@ -152,6 +213,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('adminName').textContent = data.user.username;
         await loadUsers();
         await loadProducts();
+        await loadOrders();
+        await loadSettings();
+        await loadApiStatus();
     } catch (error) {
         if (error.message !== 'Unauthorized') logout('Could not verify your session.');
         return;
@@ -159,17 +223,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     refreshBtn.addEventListener('click', loadUsers);
     document.getElementById('refreshProductsBtn').addEventListener('click', loadProducts);
+    document.getElementById('refreshOrdersBtn').addEventListener('click', loadOrders);
+    document.getElementById('refreshApiBtn').addEventListener('click', loadApiStatus);
+    document.querySelectorAll('[data-panel]').forEach((link) => link.addEventListener('click', (event) => {
+        event.preventDefault();
+        activatePanel(link.dataset.panel);
+        window.history.replaceState({}, document.title, `#${link.dataset.panel}`);
+    }));
     productForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(productForm);
+        const payload = Object.fromEntries(formData.entries());
+        payload.images = payload.images.split(/\r?\n/).map((image) => image.trim()).filter(Boolean);
         const response = await request('/api/admin/products', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(Object.fromEntries(formData.entries()))
+            body: JSON.stringify(payload)
         });
         if (!response.ok) return alert((await response.json()).message || 'Could not add listing');
         productForm.reset();
         await loadProducts();
     });
+    document.getElementById('settingsForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const response = await request('/api/admin/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderNotificationEmail: form.orderNotificationEmail.value, lineNotificationsEnabled: form.lineNotificationsEnabled.checked })
+        });
+        const data = await response.json();
+        if (!response.ok) return alert(data.message || 'Could not save settings');
+        document.getElementById('settingsStatus').textContent = 'Settings saved for this server session.';
+        await loadApiStatus();
+    });
+    activatePanel(window.location.hash.slice(1) || 'dashboard');
     logoutBtn.addEventListener('click', () => logout());
 });

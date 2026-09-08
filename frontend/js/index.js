@@ -20,9 +20,38 @@ function renderProducts(products = state.products) {
             <div class="product-image"><span>${product.category}</span><strong>${String(index + 1).padStart(2, '0')}</strong><div class="product-shape"></div></div>
             <div class="product-meta"><div><p class="product-category">${product.badge}</p><h3>${product.name}</h3></div><strong>${money(product.price)}</strong></div>
             <p class="product-description">${product.description}</p>
+            <button class="details-button" data-product-id="${product.id}" type="button">View account details</button>
             <button class="add-button" data-product-id="${product.id}" type="button">Add to bag <span>+</span></button>
         </article>`).join('') : '<p class="empty-state">No pieces in this edit yet.</p>';
     grid.querySelectorAll('.add-button').forEach((button) => button.addEventListener('click', () => addToCart(button.dataset.productId)));
+    grid.querySelectorAll('.details-button').forEach((button) => button.addEventListener('click', () => openProductDetails(button.dataset.productId)));
+}
+
+function openProductDetails(productId) {
+    const product = state.products.find((item) => item.id === productId);
+    if (!product) return;
+    const dialog = document.getElementById('productDialog');
+    const images = product.images?.length ? product.images : [
+        `https://placehold.co/900x700/111827/67e8f9?text=${encodeURIComponent(product.name)}`,
+        `https://placehold.co/900x700/1e293b/a78bfa?text=${encodeURIComponent(product.category + ' preview')}`
+    ];
+    document.getElementById('dialogCategory').textContent = `${product.category} · ${product.badge}`;
+    document.getElementById('dialogName').textContent = product.name;
+    document.getElementById('dialogPrice').textContent = money(product.price);
+    document.getElementById('dialogDescription').textContent = product.longDescription || product.description;
+    document.getElementById('dialogStock').textContent = product.mode === 'out-of-stock' ? 'Currently out of stock' : 'Available now';
+    document.getElementById('dialogStock').className = `dialog-stock ${product.mode === 'out-of-stock' ? 'unavailable' : ''}`;
+    const main = document.getElementById('galleryMain');
+    const thumbs = document.getElementById('galleryThumbs');
+    const showImage = (image) => { main.style.backgroundImage = `url("${image}")`; };
+    showImage(images[0]);
+    thumbs.innerHTML = images.map((image, index) => `<button class="gallery-thumb${index === 0 ? ' active' : ''}" style="background-image:url('${image}')" data-image="${image}" type="button" aria-label="View picture ${index + 1}"></button>`).join('');
+    thumbs.querySelectorAll('.gallery-thumb').forEach((button) => button.addEventListener('click', () => { thumbs.querySelectorAll('.gallery-thumb').forEach((item) => item.classList.remove('active')); button.classList.add('active'); showImage(button.dataset.image); }));
+    const addButton = document.getElementById('dialogAdd');
+    addButton.disabled = product.mode === 'out-of-stock';
+    addButton.textContent = product.mode === 'out-of-stock' ? 'Out of stock' : 'Add to bag';
+    addButton.onclick = async () => { await addToCart(product.id); dialog.close(); };
+    dialog.showModal();
 }
 
 function renderCategories() {
@@ -106,5 +135,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('cartClose').addEventListener('click', closeCart);
     document.getElementById('drawerBackdrop').addEventListener('click', closeCart);
     document.getElementById('checkoutButton').addEventListener('click', checkout);
+    document.getElementById('dialogClose').addEventListener('click', () => document.getElementById('productDialog').close());
     if (token()) document.getElementById('accountLink').textContent = 'Your account';
 });

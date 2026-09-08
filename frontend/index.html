@@ -64,6 +64,11 @@
         <div class="cart-footer"><div class="cart-total"><span>Subtotal</span><strong id="cartTotal">$0.00</strong></div><button id="checkoutButton" class="solid-button" type="button">Checkout</button><p class="cart-note">Demo checkout. Orders are stored for your account.</p></div>
     </aside>
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    <dialog class="product-dialog" id="productDialog">
+        <button class="dialog-close" id="dialogClose" type="button" aria-label="Close listing details">×</button>
+        <div class="dialog-gallery"><div class="gallery-main" id="galleryMain"></div><div class="gallery-thumbs" id="galleryThumbs"></div></div>
+        <div class="dialog-copy"><p class="eyebrow" id="dialogCategory">Game account</p><h2 id="dialogName">Listing</h2><p class="dialog-price" id="dialogPrice">$0.00</p><p id="dialogDescription"></p><p class="dialog-stock" id="dialogStock"></p><button class="solid-button" id="dialogAdd" type="button">Add to bag</button></div>
+    </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <footer class="store-footer"><span>GameVault © 2026</span><span>Play more. Queue less.</span></footer>
 </body>

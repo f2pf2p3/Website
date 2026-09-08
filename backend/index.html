@@ -17,10 +17,12 @@
             <h2>GameVault Admin</h2>
 
             <nav>
-                <a href="#" class="active">Dashboard</a>
-                <a href="#">Users</a>
-                <a href="#">API</a>
-                <a href="#">Settings</a>
+                <a href="#dashboard" class="active" data-panel="dashboard">Dashboard</a>
+                <a href="#users" data-panel="users">Users</a>
+                <a href="#listings" data-panel="listings">Listings</a>
+                <a href="#orders" data-panel="orders">Orders</a>
+                <a href="#api" data-panel="api">API</a>
+                <a href="#settings" data-panel="settings">Settings</a>
             </nav>
         </aside>
 
@@ -37,7 +39,7 @@
             </header>
 
             <!-- Statistics -->
-            <section class="stats">
+            <section class="stats" id="dashboardPanel" data-section="dashboard">
 
                 <div class="card">
                     <span>Total Users</span>
@@ -66,7 +68,7 @@
 
             </section>
 
-            <section class="panel product-panel">
+            <section class="panel product-panel" id="listingsPanel" data-section="listings">
                 <div class="panel-header">
                     <div>
                         <h2>Game account listings</h2>
@@ -80,6 +82,8 @@
                     <input name="price" type="number" min="0" step="0.01" placeholder="Price" required>
                     <input name="badge" placeholder="Badge, e.g. Level 80">
                     <input name="description" placeholder="Short description">
+                    <textarea name="longDescription" placeholder="Long description and handover details"></textarea>
+                    <textarea name="images" placeholder="Picture URLs, one per line"></textarea>
                     <select name="mode"><option value="restock">Restock</option><option value="out-of-stock">Out of stock</option></select>
                     <button type="submit">Add listing</button>
                 </form>
@@ -87,7 +91,7 @@
             </section>
 
             <!-- Recent Users -->
-            <section class="panel">
+            <section class="panel" id="usersPanel" data-section="users">
 
                 <div class="panel-header">
                     <h2>Recent Users</h2>
@@ -110,6 +114,22 @@
                     </tbody>
                 </table>
 
+            </section>
+
+            <section class="panel" id="ordersPanel" data-section="orders">
+                <div class="panel-header"><div><h2>Orders</h2><p>Review customer purchases and update fulfillment status.</p></div><button id="refreshOrdersBtn" type="button">Refresh</button></div>
+                <div class="admin-orders" id="orderTable"></div>
+            </section>
+
+            <section class="panel info-panel" id="apiPanel" data-section="api">
+                <div class="panel-header"><div><h2>API status</h2><p>Protected backend capabilities available to this admin account.</p></div><button id="refreshApiBtn" type="button">Refresh</button></div>
+                <div class="api-grid" id="apiStatus"></div>
+            </section>
+
+            <section class="panel info-panel" id="settingsPanel" data-section="settings">
+                <div class="panel-header"><div><h2>Store settings</h2><p>Update notification routing for the current server session.</p></div></div>
+                <form id="settingsForm" class="settings-form"><label>Order notification email<input name="orderNotificationEmail" type="email" required></label><label class="toggle-label"><input name="lineNotificationsEnabled" type="checkbox"> Enable LINE purchase messages</label><button type="submit">Save settings</button></form>
+                <div class="settings-status" id="settingsStatus"></div>
             </section>
 
         </main>

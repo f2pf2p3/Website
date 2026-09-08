@@ -63,8 +63,14 @@ The storefront uses the backend catalog and authenticated shopping APIs:
 | `DELETE` | `/api/cart/items/:productId` | Remove a product from the bag |
 | `POST` | `/api/orders` | Confirm the current bag as an order |
 | `GET` | `/api/orders` | Return the signed-in user's order history |
+| `GET` | `/api/admin/orders` | List all orders for an admin |
+| `PATCH` | `/api/admin/orders/:id/status` | Update an order status |
+| `GET` | `/api/admin/settings` | Return non-secret admin configuration status |
+| `PATCH` | `/api/admin/settings` | Update runtime notification settings |
 
 Catalog data and cart/order state are currently held in memory for the demo. A production deployment should move products, carts, and orders into PostgreSQL and add payment, inventory, shipping, and refund workflows.
+
+Listings support `images` (up to eight URLs) and `longDescription`. The admin dashboard's Listings panel accepts one image URL per line and the Orders panel supports `Pending`, `Paid`, `Confirmed`, `Delivered`, `Cancelled`, and `Refunded`.
 
 ## Purchase Notifications
 

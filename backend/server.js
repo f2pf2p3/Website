@@ -12,12 +12,18 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+app.set('trust proxy', 1);
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_RESEND_MS = 60 * 1000;
 const otpChallenges = new Map();
 const carts = new Map();
 const orders = new Map();
+const orderStatuses = ['Pending', 'Paid', 'Confirmed', 'Delivered', 'Cancelled', 'Refunded'];
+const runtimeSettings = {
+    orderNotificationEmail: process.env.ORDER_NOTIFICATION_EMAIL || 'shogunraiden2006@protonmail.com',
+    lineNotificationsEnabled: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN && process.env.LINE_TO_USER_ID)
+};
 const products = [
     {
         id: 'neon-vanguard',
@@ -81,6 +87,22 @@ const products = [
     }
 ];
 
+function addDefaultProductMedia(product) {
+    if (!Array.isArray(product.images) || product.images.length < 2) {
+        const label = encodeURIComponent(product.name);
+        product.images = [
+            `https://placehold.co/900x700/111827/67e8f9?text=${label}`,
+            `https://placehold.co/900x700/1e293b/a78bfa?text=${encodeURIComponent(product.category + ' preview')}`
+        ];
+    }
+    if (!product.longDescription) {
+        product.longDescription = `${product.description} This listing includes the advertised progression, unlocks, and access details shown in the account handover notes. Review the listing carefully before checkout.`;
+    }
+    return product;
+}
+
+products.forEach(addDefaultProductMedia);
+
 if (!process.env.JWT_SECRET) {
     console.warn('JWT_SECRET is not configured; generated a temporary secret for this process.');
 }
@@ -109,7 +131,6 @@ const mailer = process.env.SMTP_HOST
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD }
     })
     : null;
-const ORDER_NOTIFICATION_EMAIL = process.env.ORDER_NOTIFICATION_EMAIL || 'shogunraiden2006@protonmail.com';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 const LINE_TO_USER_ID = process.env.LINE_TO_USER_ID;
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
@@ -156,26 +177,50 @@ async function notifyLine(message) {
 async function notifyOrder(order, user) {
     const itemLines = order.items.map((item) => `- ${item.product.name} x${item.quantity} ($${(item.product.price * item.quantity).toFixed(2)})`).join('\n');
     const message = [
-        `New GameVault order ${order.id}`,
-        `Customer: ${user.username} (user ${user.id})`,
-        `Total: $${order.total.toFixed(2)}`,
-        'Items:',
-        itemLines
+        'GAMEVAULT / NEW PURCHASE',
+        '========================',
+        `Order ID : ${order.id}`,
+        `Customer : ${user.username}`,
+        `Email    : ${user.email || 'not available'}`,
+        `Channel  : ${order.shipping}`,
+        `Total    : $${order.total.toFixed(2)}`,
+        '',
+        'ITEMS',
+        itemLines,
+        '========================',
+        'Action required: review and fulfill this order.'
     ].join('\n');
     const tasks = [];
     if (mailer && process.env.SMTP_FROM) {
         tasks.push(mailer.sendMail({
             from: process.env.SMTP_FROM,
-            to: ORDER_NOTIFICATION_EMAIL,
+            to: runtimeSettings.orderNotificationEmail,
             subject: `[GameVault] New order ${order.id}`,
             text: `${message}\n\nCustomer email: ${user.email || 'not available'}`
         }));
     } else {
         console.warn('Order email skipped because SMTP is not configured.');
     }
-    if (LINE_CHANNEL_ACCESS_TOKEN && LINE_TO_USER_ID) tasks.push(notifyLine(message));
+    if (runtimeSettings.lineNotificationsEnabled) tasks.push(notifyLine(message));
     const results = await Promise.allSettled(tasks);
     results.filter((result) => result.status === 'rejected').forEach((result) => console.error('Order notification failed:', result.reason));
+}
+
+async function notifyOrderStatus(order) {
+    if (!runtimeSettings.lineNotificationsEnabled) return;
+    const message = [
+        'GAMEVAULT / ORDER UPDATE',
+        '========================',
+        `Order ID : ${order.id}`,
+        `Status   : ${order.status}`,
+        `Total    : $${order.total.toFixed(2)}`,
+        '========================'
+    ].join('\n');
+    try {
+        await notifyLine(message);
+    } catch (error) {
+        console.error('Order status notification failed:', error);
+    }
 }
 
 function createChallenge(key, value) {
@@ -280,7 +325,7 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 app.post('/api/admin/products', authenticateToken, requireAdmin, (req, res) => {
-    const { name, category, price, badge, description, color, mode } = req.body;
+    const { name, category, price, badge, description, longDescription, images, color, mode } = req.body;
     const numericPrice = Number(price);
     if (!name?.trim() || !category?.trim() || !Number.isFinite(numericPrice) || numericPrice < 0) {
         return res.status(400).json({ message: 'Name, category, and a valid price are required.' });
@@ -293,9 +338,12 @@ app.post('/api/admin/products', authenticateToken, requireAdmin, (req, res) => {
         price: numericPrice,
         badge: badge?.trim() || 'New drop',
         description: description?.trim() || 'Curated game account ready for its next player.',
+        longDescription: longDescription?.trim() || '',
+        images: Array.isArray(images) ? images.filter((image) => typeof image === 'string' && image.trim()).slice(0, 8) : [],
         color: color || '#67e8f9',
         mode: mode === 'out-of-stock' ? 'out-of-stock' : 'restock'
     };
+    addDefaultProductMedia(product);
     products.push(product);
     return res.status(201).json({ product });
 });
@@ -312,9 +360,12 @@ app.patch('/api/admin/products/:id', authenticateToken, requireAdmin, (req, res)
         ...(req.body.price !== undefined ? { price: Number(req.body.price) } : {}),
         ...(req.body.badge !== undefined ? { badge: String(req.body.badge).trim() } : {}),
         ...(req.body.description !== undefined ? { description: String(req.body.description).trim() } : {}),
+        ...(req.body.longDescription !== undefined ? { longDescription: String(req.body.longDescription).trim() } : {}),
+        ...(req.body.images !== undefined ? { images: Array.isArray(req.body.images) ? req.body.images.filter((image) => typeof image === 'string' && image.trim()).slice(0, 8) : [] } : {}),
         ...(req.body.color !== undefined ? { color: String(req.body.color) } : {}),
         ...(req.body.mode !== undefined ? { mode: req.body.mode } : {})
     });
+    addDefaultProductMedia(product);
     return res.json({ product });
 });
 
@@ -357,7 +408,8 @@ app.post('/api/orders', authenticateToken, (req, res) => {
         status: 'Confirmed',
         total: cart.total,
         items: cart.items,
-        shipping: req.body.shipping || 'Studio pickup'
+        shipping: req.body.shipping || 'Studio pickup',
+        customer: { id: req.user.id, username: req.user.username, email: req.user.email || null }
     };
     if (!orders.has(req.user.id)) orders.set(req.user.id, []);
     orders.get(req.user.id).unshift(order);
@@ -367,6 +419,27 @@ app.post('/api/orders', authenticateToken, (req, res) => {
 });
 
 app.get('/api/orders', authenticateToken, (req, res) => res.json({ orders: orders.get(req.user.id) || [] }));
+
+app.get('/api/admin/orders', authenticateToken, requireAdmin, (req, res) => {
+    const result = [];
+    orders.forEach((userOrders) => userOrders.forEach((order) => result.push(order)));
+    result.sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
+    return res.json({ orders: result, statuses: orderStatuses });
+});
+
+app.patch('/api/admin/orders/:id/status', authenticateToken, requireAdmin, (req, res) => {
+    const status = String(req.body.status || '');
+    if (!orderStatuses.includes(status)) return res.status(400).json({ message: 'Invalid order status.' });
+    let target = null;
+    orders.forEach((userOrders) => userOrders.forEach((order) => {
+        if (order.id === req.params.id) target = order;
+    }));
+    if (!target) return res.status(404).json({ message: 'Order not found.' });
+    target.status = status;
+    target.updatedAt = new Date().toISOString();
+    notifyOrderStatus(target);
+    return res.json({ order: target });
+});
 
 // REQUEST REGISTRATION OTP
 app.post('/api/register/request-otp', registerLimiter, async (req, res) => {
@@ -592,4 +665,32 @@ app.listen(PORT, () => {
     console.log('BACKEND SERVER STARTED');
     console.log(`PORT: ${PORT}`);
     console.log('========================================');
+});
+
+app.get('/api/admin/settings', authenticateToken, requireAdmin, (req, res) => {
+    return res.json({
+        orderNotificationEmail: runtimeSettings.orderNotificationEmail,
+        lineNotificationsEnabled: runtimeSettings.lineNotificationsEnabled,
+        lineWebhookPath: '/api/line/webhook',
+        smtpConfigured: Boolean(mailer && process.env.SMTP_FROM),
+        databaseConfigured: Boolean(process.env.DATABASE_URL)
+    });
+});
+
+app.patch('/api/admin/settings', authenticateToken, requireAdmin, (req, res) => {
+    if (req.body.orderNotificationEmail !== undefined) {
+        const email = String(req.body.orderNotificationEmail).trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: 'Enter a valid notification email.' });
+        runtimeSettings.orderNotificationEmail = email;
+    }
+    if (req.body.lineNotificationsEnabled !== undefined) {
+        runtimeSettings.lineNotificationsEnabled = Boolean(req.body.lineNotificationsEnabled) && Boolean(LINE_CHANNEL_ACCESS_TOKEN && LINE_TO_USER_ID);
+    }
+    return res.json({
+        orderNotificationEmail: runtimeSettings.orderNotificationEmail,
+        lineNotificationsEnabled: runtimeSettings.lineNotificationsEnabled,
+        lineWebhookPath: '/api/line/webhook',
+        smtpConfigured: Boolean(mailer && process.env.SMTP_FROM),
+        databaseConfigured: Boolean(process.env.DATABASE_URL)
+    });
 });
