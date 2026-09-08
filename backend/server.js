@@ -131,8 +131,12 @@ const mailer = nodemailer.createTransport({
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD
-    }
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000
 });
+
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 const LINE_TO_USER_ID = process.env.LINE_TO_USER_ID;
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
